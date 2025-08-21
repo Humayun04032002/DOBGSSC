@@ -63,7 +63,7 @@
             window.addEventListener('load', () => {
                 // IMPORTANT: Replace 'your-repo-name' with the actual name of your GitHub repository.
                 // For example, if your repo is 'https://github.com/username/botany-app', then use '/botany-app/'
-                navigator.serviceWorker.register('/DOB/service-worker.js')
+                navigator.serviceWorker.register('/service-worker.js')
                     .then((registration) => {
                         console.log('ServiceWorker registration successful with scope: ', registration.scope);
                     })
@@ -75,3 +75,4 @@
     </script>
 </body>
 </html>
+
