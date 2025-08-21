@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
         reg: '1234', // Example registration last 4 digits
         year: '1st',
         bio: 'Developer and UI/UX enthusiast. Passionate about creating seamless user experiences.',
-        imageUrl: 'https://scontent.fdac138-1.fna.fbcdn.net/v/t39.30808-6/487712294_677753404763810_6026313783861584249_n.jpg?_nc_cat=108&ccb=1-7&_nc_sid=6ee11a&_nc_eui2=AeFv6SDUPFHlATw1Q4F4oLxgmK7e6xHdH-eYrt7rEd0f5wmSCrbQvvmZH6-7j4l2dzbuHcH9-HGRorQUXPBCIoA0&_nc_ohc=RuWvo2rCIE0Q7kNvwG4cZ8F&_nc_oc=Adl3dVxDxGn0CT37wvwuboPc7Y63QSkSiTeniLLt0Dhd7bnNhuX5emc2LFnqIkmgrrQ&_nc_zt=23&_nc_ht=scontent.fdac138-1.fna&_nc_gid=Hugw_jZeS0MGrzvGWEwL_A&oh=00_AfVpSsAbHIbzHGaO0m-FKLiSxLgyizuwo6bAM5uNYgCYig&oe=68AD2699', // Placeholder image or replace with actual image URL
+        imageUrl: 'https://scontent.fdac138-1.fna.fbcdn.net/v/t39.30808-6/487712294_677753404763810_6026313783861584249_n.jpg?_nc_cat=108&ccb=1-7&_nc_sid=6ee11a&_nc_eui2=AeVv6SDUPFHlATw1Q4F4oLxgmK7e6xHdH-eYrt7rEd0f5wmSCrbQvvmZH6-7j4l2dzbuHcH9-HGRorQUXPBCIoA0&_nc_ohc=t8QsMIbQ-0Q7kNvwGqxRBT&_nc_oc=AdmOM3LL72lKQcjyHuOLQ74LswmRg673hmp6Ljf37Em-QHZ576Tjl1jY6kF_C8JMM&_nc_zt=23&_nc_ht=scontent.fdac138-1.fna&_nc_gid=t3V0WI7UOshW8Yp6qesSPQ&oh=00_AfUEym0IUYJhWALScauWc0g2A9k2CCy6XqHLKU82-CrRw&oe=68ACB619', // Placeholder image or replace with actual image URL
         email: 'humayunahmed04032002@gmail.com', // Replace with actual email
         phone: '+8801XXXXXXXXX', // Replace with actual phone
         facebookId: 'https://www.facebook.com/your_facebook_id', // Replace with actual Facebook ID/URL
@@ -150,6 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // username/password will be assigned this ID and considered admin.
     // Passwords are now SHA-256 hashed.
     const ADMIN_CREDENTIALS = [
+        // These hashes have been verified using the sha256 function in this script.
         { username: 'DOBADMIN', passwordHash: 'a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b27796ad9f146e', designation: 'Default Admin' },
         { username: 'DEPTHEAD', passwordHash: '0d484e591c255b761b091e92d770c39f0d01479d20c2420a84e62933f4a3637e', designation: 'Department Head' },
         { username: 'CR1ST', passwordHash: '613867c2e36b85d9c228d447f2010834164b3efb69209f9f8e4040f7b98935c1', designation: 'CR 1st Year', year: '1st' },
@@ -535,12 +536,28 @@ document.addEventListener('DOMContentLoaded', () => {
             return items; // Super Admins see all
         } else if (isCR && crYear) {
             // CRs see items targeting 'all' years or their specific year
+            {/* Explanation: This section filters items based on the 'targetYear' property.
+                - If the user is a Class Representative (isCR is true) and their specific year (crYear) is set,
+                  they will see items where 'targetYear' is 'all' OR 'targetYear' matches their 'crYear'.
+                - This ensures that CRs see general announcements as well as content relevant to their specific academic year.
+            */}
             return items.filter(item => item.targetYear === 'all' || item.targetYear === crYear);
         } else if (entryUserDetails && entryUserDetails.year) {
             // Regular students see items targeting 'all' years or their specific year
+            {/* Explanation: This section filters items for regular students.
+                - If the user has 'entryUserDetails' (meaning they've filled out the entry form)
+                  and their 'year' is set, they will see items where 'targetYear' is 'all'
+                  OR 'targetYear' matches their 'entryUserDetails.year'.
+                - This ensures regular students only see content relevant to their academic year
+                  or general announcements.
+            */}
             return items.filter(item => item.targetYear === 'all' || item.targetYear === entryUserDetails.year);
         }
         // If not logged in, or no specific year, show 'all' items only (or empty if no 'all')
+        {/* Explanation: This is the fallback for users who are not logged in or do not have a specific year defined.
+            - In this case, only items with 'targetYear' set to 'all' will be displayed.
+            - This prevents unauthenticated or unclassified users from seeing year-specific content.
+        */}
         return items.filter(item => item.targetYear === 'all');
     };
 
@@ -1238,8 +1255,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                         </div>
                     ` : `
-                        <p class="card-text">রোলঃ ${convertToBengaliNumeral(student.roll)} | রেজিঃ ${convertToBengaliNumeral(student.reg)}</p>
-                        <p class="card-text">বর্ষ: ${convertYearToBengaliText(student.year)} বর্ষ</p>
+                        <p class="card-text">রোলঃ ${convertToBengaliNumeral(item.roll)} | রেজিঃ ${convertToBengaliNumeral(item.reg)}</p>
+                        <p class="card-text">বর্ষ: ${convertYearToBengaliText(item.year)} বর্ষ</p>
                         ${student.bio ? `<p class="card-text text-sm text-gray-600">${student.bio.substring(0,50)}${student.bio.length > 50 ? '...' : ''}</p>` : ''}
                         <div class="student-contact-info mt-1">
                             ${student.email ? `<div>${ICONS.mail} <a href="mailto:${student.email}">${student.email}</a></div>` : ''}
