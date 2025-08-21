@@ -1,4 +1,4 @@
-const CACHE_NAME = 'botany-app-v2';
+const CACHE_NAME = 'botany-app-v3';
 const urlsToCache = [
     './',
     './DOBGSSC/index.html',
@@ -47,5 +47,6 @@ self.addEventListener('activate', (event) => {
         })
     );
 });
+
 
 
