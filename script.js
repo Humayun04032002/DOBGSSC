@@ -15,6 +15,7 @@ const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__f
     messagingSenderId: "365997031075",
     appId: "1:365997031075:web:116b96c9232215c1260916",
     measurementId: "G-7YC5XHZ5GN"
+}
 
 const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId; // Canvas appId থাকলে সেটা, না হলে projectId
 
@@ -2180,4 +2181,5 @@ document.addEventListener('DOMContentLoaded', () => {
         openModal(entryFormContainer);
     }
 });
+
 
