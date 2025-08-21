@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>উদ্ভিদবিদ্যা বিভাগ</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- PWA: Manifest file link -->
+    <link rel="manifest" href="manifest.json">
+</head>
+<body>
+    <div id="entry-form-container" class="modal-container active">
+        </div>
+
+    <div id="app-container" style="display: none;">
+        <header>
+            <div class="header-title">
+                <span id="header-leaf-icon" style="color: #4CAF50;"></span>
+                <h1>উদ্ভিদবিদ্যা বিভাগ</h1>
+            </div>
+            <div class="header-session-info">
+                <p>সরকারি শাহ সুলতান কলেজ, বগুড়া</p>
+                <p id="user-welcome-info" style="color: #4CAF50;"></p>
+            </div>
+        </header>
+
+        <nav>
+            </nav>
+
+        <main class="container">
+            <div id="page-content">
+                </div>
+        </main>
+
+        <div id="detail-modal-container" class="modal-container">
+            <div class="modal-content">
+                <button id="detail-modal-close" class="modal-close-btn">&times;</button>
+                <div id="detail-modal-body"></div>
+            </div>
+        </div>
+
+        <div id="form-modal-container" class="modal-container">
+            <div class="modal-content form-modal-content">
+                 <button id="form-modal-close" class="modal-close-btn">&times;</button>
+                <div id="form-modal-body"></div>
+            </div>
+        </div>
+
+        <!-- New Comment Modal -->
+        <div id="comment-modal-container" class="modal-container">
+            <div class="modal-content form-modal-content">
+                <button id="comment-modal-close" class="modal-close-btn">&times;</button>
+                <div id="comment-modal-body"></div>
+            </div>
+        </div>
+
+    </div> <!-- End of app-container -->
+
+    <script type="module" src="script.js"></script>
+    <script>
+        // Register service worker for PWA capabilities
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // IMPORTANT: Replace 'your-repo-name' with the actual name of your GitHub repository.
+                // For example, if your repo is 'https://github.com/username/botany-app', then use '/botany-app/'
+                navigator.serviceWorker.register('/DOB/service-worker.js')
+                    .then((registration) => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    })
+                    .catch((err) => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
