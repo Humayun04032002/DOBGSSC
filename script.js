@@ -5,7 +5,9 @@ import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnap
 
 // আপনার Firebase প্রজেক্টের কনফিগারেশন, যা আপনার দেওয়া হয়েছে।
 // এটি এখন সরাসরি এখানে যুক্ত করা হয়েছে।
-const firebaseConfig = {
+// Canvas পরিবেশ থেকে __firebase_config এবং __app_id ব্যবহার করা হচ্ছে।
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+    // Fallback for local development if not in Canvas
     apiKey: "AIzaSyAoUwwmxG9fq02pKKoUw63-chtMkAN0GXE",
     authDomain: "botanyapp-ca95e.firebaseapp.com",
     projectId: "botanyapp-ca95e",
@@ -15,17 +17,19 @@ const firebaseConfig = {
     measurementId: "G-7YC5XHZ5GN"
 };
 
+const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId; // Canvas appId থাকলে সেটা, না হলে projectId
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Firebase Initialization ---
-    // Global variables provided by the Canvas environment (এখন সরাসরি firebaseConfig ব্যবহার করা হচ্ছে)
-    const appId = firebaseConfig.projectId; // projectId কে appId হিসেবে ব্যবহার করা হচ্ছে, কারণ এটি প্রজেক্টকে ইউনিকলি সনাক্ত করে
-
     let app;
     let db;
     let auth;
     let userId = null; // Will store current user's ID (Firebase UID)
-    let isAdmin = false; // Flag to check if current user is admin
+    let isAdmin = false; // Flag to check if current user is any type of admin (DOBADMIN, DEPTHEAD, CRs)
+    let isSuperAdmin = false; // Flag for full admin permissions (DOBADMIN, DEPTHEAD)
+    let isCR = false; // Flag for Class Representative
+    let crYear = ''; // Stores the specific year for a CR (e.g., '1st', '2nd')
+
 
     // Collections paths
     const PUBLIC_COLLECTION_PATH = `artifacts/${appId}/public/data`;
@@ -40,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
         reg: '1234', // Example registration last 4 digits
         year: '1st',
         bio: 'Developer and UI/UX enthusiast. Passionate about creating seamless user experiences.',
-        imageUrl: 'https://scontent.fdac138-1.fna.fbcdn.net/v/t39.30808-6/487712294_677753404763810_6026313783861584249_n.jpg?_nc_cat=108&ccb=1-7&_nc_sid=6ee11a&_nc_eui2=AeFv6SDUPFHlATw1Q4F4oLxgmK7e6xHdH-eYrt7rEd0f5wmSCrbQvvmZH6-7j4l2dzbuHcH9-HGRorQUXPBCIoA0&_nc_ohc=t8QsMIb7Q-0Q7kNvwGqxRBT&_nc_oc=AdmJOM3LL72lKQcjyHuOLvQ74LswmRg673hmp6Ljf37Em-QHZ576Tjl1jY6kF_C8JMM&_nc_zt=23&_nc_ht=scontent.fdac138-1.fna&_nc_gid=t3V0WI7UOshW8Yp6qesSPQ&oh=00_AfUEym0IUYJhWALScauQWc0g2A9k2CCy6XqHLKU82-CrRw&oe=68ACB619', // Placeholder image or replace with actual image URL
+        imageUrl: 'https://scontent.fdac138-1.fna.fbcdn.net/v/t39.30808-6/487712294_677753404763810_6026313783861584249_n.jpg?_nc_cat=108&ccb=1-7&_nc_sid=6ee11a&_nc_eui2=AeFv6SDUPFHlATw1Q4F4oLxgmK7e6xHdH-eYrt7rEd0f5wmSCrbQvvmZH6-7j4l2dzbuHcH9-HGRorQUXPBCIoA0&_nc_ohc=RuWvo2rCIE0Q7kNvwG4cZ8F&_nc_oc=Adl3dVxDxGn0CT37wvwuboPc7Y63QSkSiTeniLLt0Dhd7bnNhuX5emc2LFnqIkmgrrQ&_nc_zt=23&_nc_ht=scontent.fdac138-1.fna&_nc_gid=Hugw_jZeS0MGrzvGWEwL_A&oh=00_AfVpSsAbHIbzHGaO0m-FKLiSxLgyizuwo6bAM5uNYgCYig&oe=68AD2699', // Placeholder image or replace with actual image URL
         email: 'humayunahmed04032002@gmail.com', // Replace with actual email
         phone: '+8801XXXXXXXXX', // Replace with actual phone
         facebookId: 'https://www.facebook.com/your_facebook_id', // Replace with actual Facebook ID/URL
@@ -127,13 +131,39 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     headerLeafIcon.innerHTML = ICONS.leaf;
 
+    // Function to hash a string using SHA-256
+    async function sha256(message) {
+        // encode as UTF-8
+        const msgBuffer = new TextEncoder().encode(message);
+        // hash the message
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        // convert ArrayBuffer to Array of bytes
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        // convert bytes to hex string
+        const hexHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        return hexHash;
+    }
+
     // --- Admin Credentials (Fixed ID for now, ideally managed by Firebase Auth) ---
     // In a real app, admin roles would be managed via Firebase Auth custom claims or a 'users' collection.
     // For this example, 'ADMIN_USER_ID' is a placeholder. Any user logging in with the hardcoded admin
     // username/password will be assigned this ID and considered admin.
-    const ADMIN_USERNAME = 'DOBADMIN';
-    const ADMIN_PASSWORD = 'DOB0412@';
-    const ADMIN_USER_ID = 'ADMIN_USER_ID_12345'; // Unique ID for the admin user
+    // Passwords are now SHA-256 hashed.
+    const ADMIN_CREDENTIALS = [
+        { username: 'DOBADMIN', passwordHash: 'a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b27796ad9f146e', designation: 'Default Admin' },
+        { username: 'DEPTHEAD', passwordHash: '0d484e591c255b761b091e92d770c39f0d01479d20c2420a84e62933f4a3637e', designation: 'Department Head' },
+        { username: 'CR1ST', passwordHash: '613867c2e36b85d9c228d447f2010834164b3efb69209f9f8e4040f7b98935c1', designation: 'CR 1st Year', year: '1st' },
+        { username: 'CR2ND', passwordHash: '3b09d94901f40d6c56b607066d79a29e46a7509d66a6a38f328f64303720f4c3', designation: 'CR 2nd Year', year: '2nd' },
+        { username: 'CR3RD', passwordHash: 'c080928e08f219156e7e59b2075908a7b6a15e0a0a5b882c2e91a681335c0a0a', designation: 'CR 3rd Year', year: '3rd' },
+        { username: 'CR4TH', passwordHash: 'f061d368e5482f7169f448625b0359b3f9d5c31f8f3c7e462a6b2d28f061d368', designation: 'CR 4th Year', year: '4th' }
+    ];
+
+    const ADMIN_USER_ID = 'ADMIN_USER_ID_12345'; // Unique ID for all admin users in terms of Firebase permissions
+
+    // --- Notification Specific Global Variables ---
+    let notifiedEvents = JSON.parse(localStorage.getItem('notifiedEvents')) || {}; // Store notified event IDs to prevent duplicate reminders
+    const NOTIFICATION_REMINDER_HOUR = 20; // 8 PM (20:00) for reminders
+    const NOTIFICATION_PROMPT_SHOWN_KEY = 'notificationPromptShown'; // Key for localStorage to track if prompt has been shown
 
     // --- Date/Time Formatting ---
     const formatDate = (dateString) => {
@@ -277,7 +307,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                     </div>
                                 </div>
                             ` : `
-                                <p class="card-text">পিতার নাম: ${item.fatherName}</p>
                                 <p class="card-text">রোলঃ ${convertToBengaliNumeral(item.roll)} | রেজিঃ ${convertToBengaliNumeral(item.reg)}</p>
                                 <p class="card-text">বর্ষ: ${convertYearToBengaliText(item.year)} বর্ষ</p>
                                 ${item.bio ? `<p class="card-text text-sm text-gray-600">${item.bio.substring(0,50)}${item.bio.length > 50 ? '...' : ''}</p>` : ''}
@@ -294,6 +323,158 @@ document.addEventListener('DOMContentLoaded', () => {
         detailModalBody.innerHTML = content;
         openModal(detailModalContainer);
     }
+
+    // --- Notification Functions ---
+    async function requestNotificationPermission() {
+        if (!("Notification" in window)) {
+            console.log("This browser does not support desktop notification");
+            return false; // Indicate failure
+        }
+
+        if (Notification.permission === "granted") {
+            console.log("Notification permission already granted.");
+            return true; // Indicate success
+        }
+
+        if (Notification.permission === "denied") {
+            console.warn("Notification permission denied by the user. Please enable it in browser settings.");
+            // We don't show custom alert here, as the prompt will handle it
+            return false; // Indicate failure
+        }
+
+        // Request permission
+        try {
+            // This is the call that triggers the browser's native notification permission prompt.
+            const permission = await Notification.requestPermission();
+            if (permission === "granted") {
+                console.log("Notification permission granted.");
+                localStorage.setItem(NOTIFICATION_PROMPT_SHOWN_KEY, 'true'); // Mark as shown
+                return true;
+            } else {
+                console.warn("Notification permission denied.");
+                localStorage.setItem(NOTIFICATION_PROMPT_SHOWN_KEY, 'denied'); // Mark as denied for future
+                return false;
+            }
+        } catch (error) {
+            console.error("Error requesting notification permission:", error);
+            localStorage.setItem(NOTIFICATION_PROMPT_SHOWN_KEY, 'error'); // Mark as error
+            return false;
+        }
+    }
+
+    function displayNotification(title, body) {
+        if (Notification.permission === "granted") {
+            const options = {
+                body: body,
+                icon: '/DOB/icons/icon-192x192.png', // Path to your app icon
+                badge: '/DOB/icons/icon-72x72.png', // Badge for smaller devices
+            };
+            const notification = new Notification(title, options);
+
+            // Optional: Handle notification click
+            notification.onclick = (event) => {
+                event.preventDefault();
+                window.focus(); // Focus the current tab
+                notification.close();
+            };
+
+            // Optional: Close notification after a few seconds
+            setTimeout(() => notification.close(), 10 * 1000); // 10 seconds
+        } else {
+            console.warn("Notification permission not granted. Cannot display notification.");
+        }
+    }
+
+    function checkAndScheduleReminders(classes, exams) {
+        // রিমাইন্ডার শুধুমাত্র লগইন করা ছাত্র এবং নোটিফিকেশন অনুমতি থাকলে দেখাবে
+        if (Notification.permission !== "granted" || !entryUserDetails || isAdmin) {
+            return;
+        }
+
+        const userYear = entryUserDetails.year;
+        const now = new Date();
+        const currentHour = now.getHours();
+
+        // রুটিন ক্লাস এবং পরীক্ষার জন্য রিমাইন্ডার
+        classes.forEach(cls => {
+            // শুধুমাত্র অতিরিক্ত ক্লাস এবং রুটিন ক্লাস যা সাপ্তাহিক নয় তার জন্য রিমাইন্ডার
+            if (cls.classType === 'extra' || (cls.classType === 'routine' && !cls.isWeekly)) {
+                if (cls.date) {
+                    const classDate = new Date(cls.date);
+                    const classTime = cls.time ? new Date(`2000-01-01T${cls.time}`) : new Date(); // Only time part
+                    
+                    const eventDateTime = new Date(
+                        classDate.getFullYear(),
+                        classDate.getMonth(),
+                        classDate.getDate(),
+                        classTime.getHours(),
+                        classTime.getMinutes()
+                    );
+
+                    const reminderDate = new Date(eventDateTime);
+                    reminderDate.setDate(reminderDate.getDate() - 1); // ইভেন্টের আগের দিন
+                    reminderDate.setHours(NOTIFICATION_REMINDER_HOUR, 0, 0, 0); // আগের দিন রাত 8টা
+
+                    // ইভেন্টটি যদি ব্যবহারকারীর বর্ষের জন্য হয় অথবা "সকল বর্ষ" এর জন্য হয়
+                    const isRelevant = cls.targetYear === 'all' || cls.targetYear === userYear;
+
+                    // রিমাইন্ডার পাঠানোর শর্ত:
+                    // 1. রিমাইন্ডারের তারিখ আজকের তারিখ হতে হবে
+                    // 2. বর্তমান সময় রিমাইন্ডারের নির্ধারিত সময়ের (রাত 8টা) পরে হতে হবে
+                    // 3. রিমাইন্ডারটি সংশ্লিষ্ট বর্ষের জন্য হতে হবে
+                    // 4. এই ইভেন্টের জন্য পূর্বে নোটিফিকেশন পাঠানো হয়নি
+                    // 5. ইভেন্টটি এখনো শেষ হয়নি
+                    if (reminderDate.toDateString() === now.toDateString() &&
+                        currentHour >= NOTIFICATION_REMINDER_HOUR &&
+                        isRelevant &&
+                        !notifiedEvents[`class-reminder-${cls.id}-${reminderDate.toISOString().split('T')[0]}`] &&
+                        eventDateTime > now
+                    ) {
+                        const title = `ক্লাস রিমাইন্ডার: ${cls.subject}`;
+                        const body = `আপনার ${convertYearToBengaliText(cls.targetYear)} বর্ষের ${cls.subject} ক্লাসটি আগামীকাল ${formatDate(cls.date)}-এ ${formatTime(cls.time)} সময়ে অনুষ্ঠিত হবে।`;
+                        displayNotification(title, body);
+                        notifiedEvents[`class-reminder-${cls.id}-${reminderDate.toISOString().split('T')[0]}`] = true;
+                        localStorage.setItem('notifiedEvents', JSON.stringify(notifiedEvents));
+                    }
+                }
+            }
+        });
+
+        exams.forEach(exam => {
+            if (exam.date) {
+                const examDate = new Date(exam.date);
+                const examTime = exam.time ? new Date(`2000-01-01T${exam.time}`) : new Date(); // Exams can also have specific times
+
+                const eventDateTime = new Date(
+                    examDate.getFullYear(),
+                    examDate.getMonth(),
+                    examDate.getDate(),
+                    examTime.getHours(),
+                    examTime.getMinutes()
+                );
+
+                const reminderDate = new Date(eventDateTime);
+                reminderDate.setDate(reminderDate.getDate() - 1); // ইভেন্টের আগের দিন
+                reminderDate.setHours(NOTIFICATION_REMINDER_HOUR, 0, 0, 0); // আগের দিন রাত 8টা
+
+                const isRelevant = exam.targetYear === 'all' || exam.targetYear === userYear;
+
+                if (reminderDate.toDateString() === now.toDateString() &&
+                    currentHour >= NOTIFICATION_REMINDER_HOUR &&
+                    isRelevant &&
+                    !notifiedEvents[`exam-reminder-${exam.id}-${reminderDate.toISOString().split('T')[0]}`] &&
+                    eventDateTime > now
+                ) {
+                    const title = `পরীক্ষার রিমাইন্ডার: ${exam.subject}`;
+                    const body = `আপনার ${convertYearToBengaliText(exam.targetYear)} বর্ষের ${exam.subject} পরীক্ষা আগামীকাল ${formatDate(exam.date)}-এ ${exam.time} অনুষ্ঠিত হবে।`;
+                    displayNotification(title, body);
+                    notifiedEvents[`exam-reminder-${exam.id}-${reminderDate.toISOString().split('T')[0]}`] = true;
+                    localStorage.setItem('notifiedEvents', JSON.stringify(notifiedEvents));
+                }
+            }
+        });
+    }
+
 
     // --- Render Functions (now use Firestore listeners) ---
     // Stores the unsubscribe functions for Firestore listeners
@@ -323,6 +504,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             renderCallback(data); // Call the specific page render function with fetched data
+
+            // Check for and schedule reminders after classes and exams data are fetched
+            if (entryUserDetails && Notification.permission === "granted" && (collectionName === 'classes' || collectionName === 'exams')) {
+                // Fetch both classes and exams to run reminder logic once if both are available
+                if (collectionName === 'classes') {
+                    getDocs(collection(db, `${PUBLIC_COLLECTION_PATH}/exams`)).then(examSnapshot => {
+                        const examsData = examSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        checkAndScheduleReminders(data, examsData);
+                    }).catch(error => console.error("Error fetching exams for reminder:", error));
+                } else if (collectionName === 'exams') {
+                     getDocs(collection(db, `${PUBLIC_COLLECTION_PATH}/classes`)).then(classSnapshot => {
+                        const classesData = classSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        checkAndScheduleReminders(classesData, data);
+                    }).catch(error => console.error("Error fetching classes for reminder:", error));
+                }
+            }
+
             hideLoading();
         }, (error) => {
             console.error(`Error fetching ${collectionName}:`, error);
@@ -330,6 +528,21 @@ document.addEventListener('DOMContentLoaded', () => {
             showCustomAlert('ডাটা লোড করতে সমস্যা হয়েছে।'); // Custom alert replacement
         });
     }
+
+    // Function to filter content based on user role
+    const filterContentByRole = (items) => {
+        if (isSuperAdmin) {
+            return items; // Super Admins see all
+        } else if (isCR && crYear) {
+            // CRs see items targeting 'all' years or their specific year
+            return items.filter(item => item.targetYear === 'all' || item.targetYear === crYear);
+        } else if (entryUserDetails && entryUserDetails.year) {
+            // Regular students see items targeting 'all' years or their specific year
+            return items.filter(item => item.targetYear === 'all' || item.targetYear === entryUserDetails.year);
+        }
+        // If not logged in, or no specific year, show 'all' items only (or empty if no 'all')
+        return items.filter(item => item.targetYear === 'all');
+    };
 
     // Function to render content for home page (recent notices, classes, exams)
     function renderHomePage(allNotices = [], allClasses = [], allExams = []) {
@@ -343,8 +556,12 @@ document.addEventListener('DOMContentLoaded', () => {
             <section id="home-next-exams"></section>
         `;
 
-        const notices = allNotices
-                            .filter(n => n.targetYear === 'all' || (entryUserDetails && n.targetYear === entryUserDetails.year))
+        // Check for and schedule reminders after data is loaded for home page
+        if (entryUserDetails && Notification.permission === "granted") {
+            checkAndScheduleReminders(allClasses, allExams);
+        }
+
+        const notices = filterContentByRole(allNotices)
                             .sort((a,b) => new Date(b.date) - new Date(a.date));
         const recentNotice = notices.length > 0 ? notices[0] : null;
         const homeRecentNoticeEl = document.getElementById('home-recent-notice');
@@ -367,8 +584,7 @@ document.addEventListener('DOMContentLoaded', () => {
             homeRecentNoticeEl.innerHTML = '<h2>সাম্প্রতিক নোটিশ</h2><p>কোনো সাম্প্রতিক নোটিশ নেই।</p>';
         }
 
-        const classes = allClasses
-                            .filter(cls => cls.targetYear === 'all' || (entryUserDetails && cls.targetYear === entryUserDetails.year));
+        const classes = filterContentByRole(allClasses);
 
         const futureClasses = classes.filter(cls => !isClassExpired(cls))
                                   .sort((a, b) => {
@@ -380,7 +596,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                           if (dayCompare !== 0) return dayCompare;
                                           return a.time.localeCompare(b.time);
                                       }
-                                      return new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`);
+                                      return new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`); // Fixed variable name here
                                   })
                                   .slice(0, 3);
 
@@ -412,8 +628,7 @@ document.addEventListener('DOMContentLoaded', () => {
             homeNextClassesEl.innerHTML += '<p>কোনো পরবর্তী ক্লাস নেই।</p>';
         }
 
-        const exams = allExams
-                          .filter(exam => exam.targetYear === 'all' || (entryUserDetails && exam.targetYear === entryUserDetails.year));
+        const exams = filterContentByRole(allExams);
         const futureExams = exams.filter(exam => !isExamExpired(exam.date))
                                .sort((a, b) => new Date(a.date) - new Date(b.date))
                                .slice(0, 2);
@@ -451,8 +666,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div id="classList" class="grid-container"></div>`;
 
-        const filteredClasses = classes
-                            .filter(cls => cls.targetYear === 'all' || (entryUserDetails && cls.targetYear === entryUserDetails.year))
+        const filteredClasses = filterContentByRole(classes)
                             .sort((a, b) => {
                                 const aExpired = isClassExpired(a);
                                 const bExpired = isClassExpired(b);
@@ -501,15 +715,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     <h4 class="card-title">${cls.subject}</h4>
                     <p class="card-meta">${classTimeDisplay}</p>
                     <p class="card-meta">বর্ষ: ${cls.targetYear === 'all' ? 'সকল বর্ষ' : `${convertYearToBengaliText(cls.targetYear)} বর্ষ`}</p>
-                    <p class="card-text">${cls.description.substring(0,100)}${cls.description.length > 100 ? '...' : ''}</p>
                     ${cls.createdBy ? `<p class="text-xs text-gray-500">যোগ করেছেন: ${cls.createdBy}</p>` : ''}
                     ${statusTag}
                     <div class="card-actions">
                         <button class="btn btn-info btn-sm details-btn">${ICONS.info} বিস্তারিত</button>
-                        ${isAdmin ? `<button class="btn btn-danger btn-sm delete-btn">${ICONS.trash} মুছুন</button>` : ''}
+                        ${isSuperAdmin ? `<button class="btn btn-danger btn-sm delete-btn">${ICONS.trash} মুছুন</button>` : ''}
                     </div>`;
                 div.querySelector('.details-btn').addEventListener('click', () => showDetails(cls, 'class'));
-                if (isAdmin) {
+                if (isSuperAdmin) { // Only Super Admins can delete classes
                     div.querySelector('.delete-btn').addEventListener('click', () => {
                         showCustomConfirm('আপনি কি এই ক্লাসটি মুছে ফেলতে চান?', () => deleteDocument('classes', cls.id));
                     });
@@ -590,10 +803,13 @@ document.addEventListener('DOMContentLoaded', () => {
         openModal(formModalContainer);
 
         const classTargetYearSelect = document.getElementById('classTargetYear');
-        // Disable targetYear select for students
+        // Disable targetYear select and pre-select for students (non-admins)
         if (!isAdmin && entryUserDetails && entryUserDetails.year) {
             classTargetYearSelect.value = entryUserDetails.year;
             classTargetYearSelect.disabled = true;
+        } else if (isCR && crYear) {
+            // Pre-select CR's year for CRs, but don't disable so they can change to 'all'
+            classTargetYearSelect.value = crYear;
         }
 
 
@@ -655,12 +871,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 createdByUserId: userId // Store user ID
             };
 
-            // Student specific restriction
-            if (!isAdmin && newClass.targetYear !== entryUserDetails.year) {
+            // Student specific restriction (applies only to non-admins)
+            if (!isAdmin && entryUserDetails && newClass.targetYear !== entryUserDetails.year) {
                 showCustomAlert("আপনি শুধুমাত্র আপনার নিজের বর্ষের জন্য ক্লাস যোগ করতে পারবেন।");
                 return;
             }
-
 
             if (!newClass.subject || !newClass.description || !newClass.time) {
                 showCustomAlert("সকল আবশ্যকীয় (*) ঘর পূরণ করুন।");
@@ -669,9 +884,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 showLoading();
-                await addDoc(collection(db, `${PUBLIC_COLLECTION_PATH}/classes`), newClass);
+                const docRef = await addDoc(collection(db, `${PUBLIC_COLLECTION_PATH}/classes`), newClass);
                 closeModal(formModalContainer);
-                // No need to call renderClassPage, onSnapshot will handle it.
+                // নতুন ক্লাস যোগ হলে নোটিফিকেশন দেখান
+                if (Notification.permission === "granted" && (newClass.targetYear === 'all' || (entryUserDetails && newClass.targetYear === entryUserDetails.year))) {
+                    displayNotification(
+                        `নতুন ক্লাস: ${newClass.subject}`,
+                        `${newClass.description.substring(0, 100)}... ${newClass.targetYear === 'all' ? 'সকল বর্ষের' : `${convertYearToBengaliText(newClass.targetYear)} বর্ষের`} জন্য।`
+                    );
+                }
             } catch (error) {
                 console.error("Error adding class:", error);
                 showCustomAlert("ক্লাস যোগ করতে সমস্যা হয়েছে।");
@@ -690,8 +911,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div id="examList" class="grid-container"></div>`;
 
-        const filteredExams = exams
-                          .filter(exam => exam.targetYear === 'all' || (entryUserDetails && exam.targetYear === entryUserDetails.year))
+        const filteredExams = filterContentByRole(exams)
                           .sort((a, b) => {
                                 const aExpired = isExamExpired(a.date);
                                 const bExpired = isExamExpired(b.date);
@@ -719,10 +939,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${expired ? '<span class="text-xs text-red-600">শেষ হয়েছে</span>' : ''}
                     <div class="card-actions">
                         <button class="btn btn-info btn-sm details-btn">${ICONS.info} বিস্তারিত</button>
-                        ${isAdmin ? `<button class="btn btn-danger btn-sm delete-btn">${ICONS.trash} মুছুন</button>` : ''}
+                        ${isSuperAdmin ? `<button class="btn btn-danger btn-sm delete-btn">${ICONS.trash} মুছুন</button>` : ''}
                     </div>`;
                 div.querySelector('.details-btn').addEventListener('click', () => showDetails(exam, 'exam'));
-                if (isAdmin) {
+                if (isSuperAdmin) { // Only Super Admins can delete exams
                     div.querySelector('.delete-btn').addEventListener('click', () => {
                         showCustomConfirm('আপনি কি এই পরীক্ষাটি মুছে ফেলতে চান?', () => deleteDocument('exams', exam.id));
                     });
@@ -770,11 +990,15 @@ document.addEventListener('DOMContentLoaded', () => {
         openModal(formModalContainer);
 
         const examTargetYearSelect = document.getElementById('examTargetYear');
-        // Disable targetYear select for students
+        // Disable targetYear select and pre-select for students (non-admins)
         if (!isAdmin && entryUserDetails && entryUserDetails.year) {
             examTargetYearSelect.value = entryUserDetails.year;
             examTargetYearSelect.disabled = true;
+        } else if (isCR && crYear) {
+            // Pre-select CR's year for CRs, but don't disable so they can change to 'all'
+            examTargetYearSelect.value = crYear;
         }
+
 
         document.getElementById('examForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -788,8 +1012,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 createdByUserId: userId
             };
 
-            // Student specific restriction
-            if (!isAdmin && newExam.targetYear !== entryUserDetails.year) {
+            // Student specific restriction (applies only to non-admins)
+            if (!isAdmin && entryUserDetails && newExam.targetYear !== entryUserDetails.year) {
                 showCustomAlert("আপনি শুধুমাত্র আপনার নিজের বর্ষের জন্য পরীক্ষা যোগ করতে পারবেন।");
                 return;
             }
@@ -801,8 +1025,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 showLoading();
-                await addDoc(collection(db, `${PUBLIC_COLLECTION_PATH}/exams`), newExam);
+                const docRef = await addDoc(collection(db, `${PUBLIC_COLLECTION_PATH}/exams`), newExam);
                 closeModal(formModalContainer);
+                // নতুন পরীক্ষা যোগ হলে নোটিফিকেশন দেখান
+                if (Notification.permission === "granted" && (newExam.targetYear === 'all' || (entryUserDetails && newExam.targetYear === entryUserDetails.year))) {
+                    displayNotification(
+                        `নতুন পরীক্ষা: ${newExam.subject}`,
+                        `${newExam.subject} পরীক্ষা ${formatDate(newExam.date)}-এ ${newExam.time} অনুষ্ঠিত হবে। আপনার ${convertYearToBengaliText(newExam.targetYear)} বর্ষের জন্য।`
+                    );
+                }
             } catch (error) {
                 console.error("Error adding exam:", error);
                 showCustomAlert("পরীক্ষা যোগ করতে সমস্যা হয়েছে।");
@@ -836,8 +1067,7 @@ document.addEventListener('DOMContentLoaded', () => {
             noticeFiltersEl.appendChild(btn);
         });
 
-        const filteredNotices = notices
-                            .filter(n => n.targetYear === 'all' || (entryUserDetails && n.targetYear === entryUserDetails.year))
+        const filteredNotices = filterContentByRole(notices)
                             .sort((a,b) => new Date(b.date) - new Date(a.date)); // Sort by newest first
 
         const categoryFilteredNotices = currentNoticeFilterCategory === 'সকল নোটিশ' ? filteredNotices : filteredNotices.filter(n => n.category === currentNoticeFilterCategory);
@@ -860,10 +1090,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${notice.createdBy ? `<p class="text-xs text-gray-500">যোগ করেছেন: ${notice.createdBy}</p>` : ''}
                     <div class="card-actions">
                         <button class="btn btn-info btn-sm details-btn">${ICONS.info} বিস্তারিত</button>
-                        ${isAdmin ? `<button class="btn btn-danger btn-sm delete-btn">${ICONS.trash} মুছুন</button>` : ''}
+                        ${isSuperAdmin ? `<button class="btn btn-danger btn-sm delete-btn">${ICONS.trash} মুছুন</button>` : ''}
                     </div>`;
                 div.querySelector('.details-btn').addEventListener('click', () => showDetails(notice, 'notice'));
-                if (isAdmin) {
+                if (isSuperAdmin) { // Only Super Admins can delete notices
                     div.querySelector('.delete-btn').addEventListener('click', () => {
                         showCustomConfirm('আপনি কি এই নোটিশটি মুছে ফেলতে চান?', () => deleteDocument('notices', notice.id));
                     });
@@ -918,10 +1148,13 @@ document.addEventListener('DOMContentLoaded', () => {
         openModal(formModalContainer);
 
         const noticeTargetYearSelect = document.getElementById('noticeTargetYear');
-        // Disable targetYear select for students
+        // Disable targetYear select and pre-select for students (non-admins)
         if (!isAdmin && entryUserDetails && entryUserDetails.year) {
             noticeTargetYearSelect.value = entryUserDetails.year;
             noticeTargetYearSelect.disabled = true;
+        } else if (isCR && crYear) {
+            // Pre-select CR's year for CRs, but don't disable so they can change to 'all'
+            noticeTargetYearSelect.value = crYear;
         }
 
         document.getElementById('noticeForm').addEventListener('submit', async (e) => {
@@ -936,8 +1169,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 createdByUserId: userId
             };
 
-            // Student specific restriction
-            if (!isAdmin && newNotice.targetYear !== entryUserDetails.year) {
+            // Student specific restriction (applies only to non-admins)
+            if (!isAdmin && entryUserDetails && newNotice.targetYear !== entryUserDetails.year) {
                 showCustomAlert("আপনি শুধুমাত্র আপনার নিজের বর্ষের জন্য নোটিশ যোগ করতে পারবেন।");
                 return;
             }
@@ -949,8 +1182,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 showLoading();
-                await addDoc(collection(db, `${PUBLIC_COLLECTION_PATH}/notices`), newNotice);
+                const docRef = await addDoc(collection(db, `${PUBLIC_COLLECTION_PATH}/notices`), newNotice);
                 closeModal(formModalContainer);
+                 // নতুন নোটিশ যোগ হলে নোটিফিকেশন দেখান
+                if (Notification.permission === "granted" && (newNotice.targetYear === 'all' || (entryUserDetails && newNotice.targetYear === entryUserDetails.year))) {
+                    displayNotification(
+                        `নতুন নোটিশ: ${newNotice.title}`,
+                        `${newNotice.description.substring(0, 100)}... ${newNotice.targetYear === 'all' ? 'সকল বর্ষের' : `${convertYearToBengaliText(newNotice.targetYear)} বর্ষের`} জন্য।`
+                    );
+                }
             } catch (error) {
                 console.error("Error adding notice:", error);
                 showCustomAlert("নোটিশ যোগ করতে সমস্যা হয়েছে।");
@@ -980,8 +1220,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Check if the current logged-in user (based on userId) is the creator of this student profile
                 // This allows students to edit their own profile
                 const isPermanentStudent = student.id === PERMANENT_STUDENT_ID;
-                const canEditStudent = !isPermanentStudent && entryUserDetails && (student.createdByUserId === userId || isAdmin);
-                const canDeleteStudent = !isPermanentStudent && isAdmin;
+                // Super Admins can edit any student. Non-super admins (including CRs and regular students) can only edit their own profile.
+                const canEditStudent = !isPermanentStudent && (isSuperAdmin || student.createdByUserId === userId);
+                const canDeleteStudent = !isPermanentStudent && isSuperAdmin; // Only Super Admins can delete student profiles
 
 
                 div.innerHTML = `
@@ -997,7 +1238,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                         </div>
                     ` : `
-                        <p class="card-text">পিতার নাম: ${student.fatherName}</p>
                         <p class="card-text">রোলঃ ${convertToBengaliNumeral(student.roll)} | রেজিঃ ${convertToBengaliNumeral(student.reg)}</p>
                         <p class="card-text">বর্ষ: ${convertYearToBengaliText(student.year)} বর্ষ</p>
                         ${student.bio ? `<p class="card-text text-sm text-gray-600">${student.bio.substring(0,50)}${student.bio.length > 50 ? '...' : ''}</p>` : ''}
@@ -1038,10 +1278,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="form-group">
                     <label for="studentName">নাম <span class="text-red-600">*</span></label>
                     <input type="text" id="studentName" value="${studentToEdit?.name || ''}" required>
-                </div>
-                <div class="form-group">
-                    <label for="studentFatherName">পিতার নাম <span class="text-red-600">*</span></label>
-                    <input type="text" id="studentFatherName" value="${studentToEdit?.fatherName || ''}" required>
                 </div>
                 <div class="form-group">
                     <label for="studentRoll">রোল নাম্বার <span class="text-red-600">*</span></label>
@@ -1093,7 +1329,7 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const studentData = {
                 name: document.getElementById('studentName').value,
-                fatherName: document.getElementById('studentFatherName').value,
+                // Removed fatherName as per request
                 roll: document.getElementById('studentRoll').value,
                 reg: document.getElementById('studentReg').value,
                 year: document.getElementById('studentYear').value,
@@ -1107,7 +1343,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 createdByUserId: userId // Firebase UID is stored here
             };
 
-            if (!studentData.name || !studentData.fatherName || !studentData.roll || !studentData.reg || !studentData.year) {
+            if (!studentData.name || !studentData.roll || !studentData.reg || !studentData.year) {
                 showCustomAlert("সকল আবশ্যকীয় (*) ঘর পূরণ করুন।");
                 return;
             }
@@ -1141,13 +1377,35 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Check if the user is an admin or the creator of the post/item (excluding permanent student)
-        // For notices, classes, exams, posts, only admin or creator can delete.
-        // For admin specifically, they can delete anything except the permanent student profile.
-        if (isAdmin) { // Admin can delete anything except the permanent student profile.
-             try {
+        const itemRef = doc(db, `${PUBLIC_COLLECTION_PATH}/${collectionName}`, docId);
+        let itemSnap;
+        try {
+            itemSnap = await getDoc(itemRef);
+        } catch (error) {
+            console.error(`Error fetching document for deletion check:`, error);
+            showCustomAlert('ডাটা লোড করতে সমস্যা হয়েছে।');
+            return;
+        }
+
+        if (!itemSnap.exists()) {
+            showCustomAlert('আইটেম খুঁজে পাওয়া যায়নি।');
+            return;
+        }
+
+        const itemData = itemSnap.data();
+
+        let hasPermission = false;
+        if (isSuperAdmin) {
+            hasPermission = true; // Super Admins can delete anything
+        } else if (isAdmin && collectionName === 'posts' && itemData.createdByUserId === userId) {
+            // Any admin (including CRs) can delete their own posts
+            hasPermission = true;
+        }
+
+        if (hasPermission) {
+            try {
                 showLoading();
-                await deleteDoc(doc(db, `${PUBLIC_COLLECTION_PATH}/${collectionName}`, docId));
+                await deleteDoc(itemRef);
                 // No need to re-render, onSnapshot will handle it.
             } catch (error) {
                 console.error(`Error deleting ${collectionName} document:`, error);
@@ -1155,25 +1413,8 @@ document.addEventListener('DOMContentLoaded', () => {
             } finally {
                 hideLoading();
             }
-        } else { // Regular user can only delete their own posts if they are the creator
-            let itemRef;
-            let itemSnap;
-            try {
-                itemRef = doc(db, `${PUBLIC_COLLECTION_PATH}/${collectionName}`, docId);
-                itemSnap = await getDoc(itemRef);
-
-                if (itemSnap.exists() && itemSnap.data().createdByUserId === userId) {
-                    showLoading();
-                    await deleteDoc(itemRef);
-                } else {
-                    showCustomAlert('আপনার এটি মুছে ফেলার অনুমতি নেই।');
-                }
-            } catch (error) {
-                console.error(`Error checking/deleting ${collectionName} document for non-admin:`, error);
-                showCustomAlert("মুছে ফেলতে সমস্যা হয়েছে।");
-            } finally {
-                hideLoading();
-            }
+        } else {
+            showCustomAlert('আপনার এটি মুছে ফেলার অনুমতি নেই।');
         }
     }
 
@@ -1209,6 +1450,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function showCommentModal(postId) {
+        if (!entryUserDetails) {
+            showCustomAlert('কমেন্ট দেখতে লগইন করুন।');
+            return;
+        }
         showLoading();
         try {
             const postRef = doc(db, `${PUBLIC_COLLECTION_PATH}/posts`, postId);
@@ -1371,6 +1616,58 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- Notification Permission Prompt Modal ---
+    function showNotificationPermissionPrompt() {
+        // Only show if notification permission is not granted AND it hasn't been explicitly hidden before
+        const promptStatus = localStorage.getItem(NOTIFICATION_PROMPT_SHOWN_KEY);
+        if (Notification.permission === "granted" || promptStatus === 'true' || promptStatus === 'denied') {
+            return;
+        }
+
+        const notificationPromptModalContainer = document.createElement('div');
+        notificationPromptModalContainer.className = 'modal-container';
+        notificationPromptModalContainer.id = 'notification-prompt-modal';
+        notificationPromptModalContainer.innerHTML = `
+            <div class="modal-content" style="max-width: 450px; text-align: center;">
+                <h3>নোটিফিকেশন অনুমতি দিন</h3>
+                <p>ক্লাস আপডেট, পরীক্ষার রিমাইন্ডার এবং গুরুত্বপূর্ণ নোটিশ পেতে নোটিফিকেশন চালু করুন।</p>
+                <div class="form-actions" style="justify-content: center; margin-top: 20px;">
+                    <button class="btn btn-primary" id="allow-notifications-btn">হ্যাঁ, অনুমতি দিন</button>
+                    <button class="btn btn-gray" id="deny-notifications-btn">পরে করুন</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(notificationPromptModalContainer);
+        openModal(notificationPromptModalContainer);
+
+        document.getElementById('allow-notifications-btn').addEventListener('click', async () => {
+            const granted = await requestNotificationPermission();
+            if (granted) {
+                showCustomAlert('নোটিফিকেশন অনুমতি দেওয়া হয়েছে! এখন আপনি আপডেট পাবেন।');
+            } else {
+                showCustomAlert('নোটিফিকেশন অনুমতি দেওয়া হয়নি। আপনি ব্রাউজার সেটিংসে এটি চালু করতে পারেন।');
+            }
+            closeModal(notificationPromptModalContainer);
+            notificationPromptModalContainer.remove();
+        });
+
+        document.getElementById('deny-notifications-btn').addEventListener('click', () => {
+            localStorage.setItem(NOTIFICATION_PROMPT_SHOWN_KEY, 'denied'); // Mark as denied explicitly
+            showCustomAlert('নোটিফিকেশন চালু করা হয়নি। আপনি যেকোনো সময় ব্রাউজার সেটিংসে এটি চালু করতে পারেন।');
+            closeModal(notificationPromptModalContainer);
+            notificationPromptModalContainer.remove();
+        });
+
+        // If user closes modal without clicking a button, also mark as denied for future prompts
+        notificationPromptModalContainer.addEventListener('click', (event) => {
+            if (event.target === notificationPromptModalContainer) {
+                localStorage.setItem(NOTIFICATION_PROMPT_SHOWN_KEY, 'denied');
+                closeModal(notificationPromptModalContainer);
+                notificationPromptModalContainer.remove();
+            }
+        });
+    }
+
 
     // --- Navigation ---
     const navItems = [
@@ -1441,8 +1738,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const div = document.createElement('div');
                 div.className = 'card post-card';
 
-                const canEditPost = entryUserDetails && (post.createdByUserId === userId || isAdmin);
-                const canDeletePost = isAdmin; // Only admins can delete posts
+                // Any user can edit their own posts, Super Admins can edit any posts
+                const canEditPost = entryUserDetails && (post.createdByUserId === userId || isSuperAdmin);
+                // Only Super Admins can delete any post. Any admin (including CRs) can delete their own posts.
+                const canDeletePost = isSuperAdmin || (isAdmin && post.createdByUserId === userId);
 
                 // Check if the current user has reacted to this post
                 const userLiked = post.reactions && post.reactions.includes(userId);
@@ -1607,10 +1906,21 @@ document.addEventListener('DOMContentLoaded', () => {
         loginAsAdminCheckbox.addEventListener('change', () => {
             if (loginAsAdminCheckbox.checked) {
                 adminLoginFields.style.display = 'block';
+                // Make student fields optional when admin login is checked
+                document.getElementById('entryName').removeAttribute('required');
+                document.getElementById('entryRoll').removeAttribute('required');
+                document.getElementById('entryYear').removeAttribute('required');
+                document.getElementById('entryReg').removeAttribute('required');
+
                 adminUsernameInput.setAttribute('required', 'true');
                 adminPasswordInput.setAttribute('required', 'true');
             } else {
                 adminLoginFields.style.display = 'none';
+                document.getElementById('entryName').setAttribute('required', 'true');
+                document.getElementById('entryRoll').setAttribute('required', 'true');
+                document.getElementById('entryYear').setAttribute('required', 'true');
+                document.getElementById('entryReg').setAttribute('required', 'true');
+
                 adminUsernameInput.removeAttribute('required');
                 adminPasswordInput.removeAttribute('required');
                 adminUsernameInput.value = '';
@@ -1618,31 +1928,43 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        studentEntryForm.addEventListener('submit', async (e) => { // Added async for consistency
+        studentEntryForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const name = document.getElementById('entryName').value.trim();
-            const roll = document.getElementById('entryRoll').value.trim();
-            const year = document.getElementById('entryYear').value.trim();
-            const regLast4 = document.getElementById('entryReg').value.trim();
+            let name, roll, year, regLast4;
             let role = 'student';
+            let designation = ''; // Store designation for admin roles
             let tempIdForEntryDetails = auth.currentUser ? auth.currentUser.uid : crypto.randomUUID(); // Use Firebase UID if available, else random.
 
             if (loginAsAdminCheckbox.checked) {
                 const adminUsername = adminUsernameInput.value.trim();
                 const adminPass = adminPasswordInput.value.trim();
+                const hashedAdminPass = await sha256(adminPass); // Hash the entered password
 
-                if (adminUsername === ADMIN_USERNAME && adminPass === ADMIN_PASSWORD) {
+                const matchedAdmin = ADMIN_CREDENTIALS.find(
+                    admin => admin.username === adminUsername && admin.passwordHash === hashedAdminPass // Compare with hashed password
+                );
+
+                if (matchedAdmin) {
                     role = 'admin';
                     tempIdForEntryDetails = ADMIN_USER_ID; // Assign fixed admin ID for internal app logic
+                    name = matchedAdmin.designation; // Display designation as name for admin
+                    designation = matchedAdmin.designation; // Store the specific designation
+                    roll = ''; // Admins don't need roll/reg
+                    year = matchedAdmin.year || ''; // Set year for CRs, empty for other admins
+                    regLast4 = '';
                     entryErrorEl.style.display = 'none';
-                    // If admin logs in, and they are currently anonymous, they remain anonymous in Firebase Auth.
-                    // Their admin role is determined by app logic (entryUserDetails.role === 'admin' AND userId === ADMIN_USER_ID)
                 } else {
                     entryErrorEl.textContent = 'ভুল ইউজারনেম বা পাসওয়ার্ড।';
                     entryErrorEl.style.display = 'block';
                     return;
                 }
             } else {
+                 name = document.getElementById('entryName').value.trim();
+                 roll = document.getElementById('entryRoll').value.trim();
+                 year = document.getElementById('entryYear').value.trim();
+                 regLast4 = document.getElementById('entryReg').value.trim();
+                 designation = 'Student'; // Default designation for students
+
                  if (!name || !roll || !year || !regLast4) {
                     entryErrorEl.textContent = 'সকল তথ্য পূরণ করুন।';
                     entryErrorEl.style.display = 'block';
@@ -1656,11 +1978,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 entryErrorEl.style.display = 'none';
             }
 
-            entryUserDetails = { name, roll, year, regLast4, role, id: tempIdForEntryDetails }; // Store details for UI
+            entryUserDetails = { name, roll, year, regLast4, role, id: tempIdForEntryDetails, designation: designation }; // Store details for UI
             localStorage.setItem('entryFormSubmitted', JSON.stringify(entryUserDetails));
             // Force update userId and isAdmin based on new entryUserDetails
             userId = auth.currentUser ? auth.currentUser.uid : tempIdForEntryDetails; // Ensure userId reflects Firebase UID if available, otherwise form ID.
-            isAdmin = (entryUserDetails.role === 'admin'); // Changed: Simplified admin check to rely only on role after local authentication
+            isAdmin = (entryUserDetails.role === 'admin'); // Check if general admin role
+            isSuperAdmin = isAdmin && (entryUserDetails.designation === 'Department Head' || entryUserDetails.designation === 'Default Admin'); // Check for super admin
+            isCR = isAdmin && entryUserDetails.designation.includes('CR'); // Check for CR
+            crYear = isCR ? entryUserDetails.year : ''; // Set CR's specific year
 
             initializeAppUI();
         });
@@ -1673,13 +1998,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // Ensure entryUserDetails is available before accessing its properties
         if (entryUserDetails) {
             // Updated line: Use convertYearToBengaliText for year and convertToBengaliNumeral for roll
-            userWelcomeInfo.textContent = `স্বাগতম: ${entryUserDetails.name} (রোল: ${convertToBengaliNumeral(entryUserDetails.roll)}, বর্ষ: ${convertYearToBengaliText(entryUserDetails.year)})${entryUserDetails.role === 'admin' ? ' অ্যাডমিন' : ''}`;
+            userWelcomeInfo.textContent = `স্বাগতম: ${entryUserDetails.name} ${entryUserDetails.roll ? `(রোল: ${convertToBengaliNumeral(entryUserDetails.roll)})` : ''}${entryUserDetails.year ? `, বর্ষ: ${convertYearToBengaliText(entryUserDetails.year)}` : ''}${entryUserDetails.role === 'admin' ? ` (${entryUserDetails.designation})` : ''}`;
         } else {
             // Fallback if somehow entryUserDetails is not set (should not happen with current logic)
             userWelcomeInfo.textContent = `স্বাগতম: ব্যবহারকারী`; // Removed ID from fallback too
         }
         renderNav();
         navigateTo('home');
+        // Show notification permission prompt after UI is initialized, if applicable
+        showNotificationPermissionPrompt();
     }
 
     // --- Initial Load & Firebase Authentication ---
@@ -1698,12 +2025,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     const storedUserDetails = localStorage.getItem('entryFormSubmitted');
                     if (storedUserDetails) {
                         entryUserDetails = JSON.parse(storedUserDetails);
-                        // If the currently authenticated Firebase user is the ADMIN_USER_ID,
+                        // If the currently authenticated Firebase user's UID matches ADMIN_USER_ID
                         // and their stored role isn't 'admin', update it for app logic.
+                        // This handles cases where an admin logs in on a new device or cleared localStorage.
                         if (user.uid === ADMIN_USER_ID && entryUserDetails.role !== 'admin') {
                             entryUserDetails.role = 'admin';
-                            // Ensure the stored ID also matches for consistency if admin
-                            entryUserDetails.id = ADMIN_USER_ID; // For app-side admin check based on fixed ID
+                            entryUserDetails.id = ADMIN_USER_ID;
+                            // Re-derive designation and year for admin types if needed (e.g., after reload)
+                            const matchedAdmin = ADMIN_CREDENTIALS.find(admin => admin.designation === entryUserDetails.designation);
+                            if (matchedAdmin) {
+                                entryUserDetails.year = matchedAdmin.year || '';
+                            }
                             localStorage.setItem('entryFormSubmitted', JSON.stringify(entryUserDetails));
                         }
                     } else {
@@ -1717,9 +2049,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // At this point, entryUserDetails is guaranteed to be set (either loaded or from form submission).
                     // Determine isAdmin based on the app's internal logic (admin username/password)
-                    // and also ensure the Firebase UID matches the ADMIN_USER_ID if it's an admin role.
-                    // Changed: Simplified admin check
                     isAdmin = (entryUserDetails.role === 'admin');
+                    isSuperAdmin = isAdmin && (entryUserDetails.designation === 'Department Head' || entryUserDetails.designation === 'Default Admin');
+                    isCR = isAdmin && entryUserDetails.designation.includes('CR');
+                    crYear = isCR ? entryUserDetails.year : ''; // Set CR's specific year
 
                     // Initialize the UI only after everything is set
                     initializeAppUI();
@@ -1807,6 +2140,10 @@ document.addEventListener('DOMContentLoaded', () => {
         userId = entryUserDetails.id;
         // Changed: Simplified admin check
         isAdmin = (entryUserDetails.role === 'admin');
+        isSuperAdmin = isAdmin && (entryUserDetails.designation === 'Department Head' || entryUserDetails.designation === 'Default Admin');
+        isCR = isAdmin && entryUserDetails.designation.includes('CR');
+        crYear = isCR ? entryUserDetails.year : ''; // Set CR's specific year
+
         // If app is reloaded and entryUserDetails exists, show app immediately. Firebase auth will catch up.
         initializeAppUI(); // Changed to immediately show UI if stored details exist
     } else {
