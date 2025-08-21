@@ -1,9 +1,9 @@
 const CACHE_NAME = 'botany-app-v2';
 const urlsToCache = [
     './',
-    './index.html',
-    './style.css',
-    './script.js',
+    './DOBGSSC/index.html',
+    './DOBGSSC/style.css',
+    './DOBGSSC/script.js',
     // Add any other critical assets here that should be cached for offline use
     // For example, if you have an 'icons' folder, list them like:
     // './icons/icon-72x72.png',
@@ -47,4 +47,5 @@ self.addEventListener('activate', (event) => {
         })
     );
 });
+
 
