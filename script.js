@@ -8,14 +8,13 @@ import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnap
 // Canvas পরিবেশ থেকে __firebase_config এবং __app_id ব্যবহার করা হচ্ছে।
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
     // Fallback for local development if not in Canvas
-    apiKey: "YOUR_FIREBASE_API_KEY", // Replace with your actual Firebase API Key
-    authDomain: "YOUR_FIREBASE_AUTH_DOMAIN",
-    projectId: "YOUR_FIREBASE_PROJECT_ID",
-    storageBucket: "YOUR_FIREBASE_STORAGE_BUCKET",
-    messagingSenderId: "YOUR_FIREBASE_MESSAGING_SENDER_ID",
-    appId: "YOUR_FIREBASE_APP_ID",
-    measurementId: "YOUR_FIREBASE_MEASUREMENT_ID"
-};
+    apiKey: "AIzaSyAoUwwmxG9fq02pKKoUw63-chtMkAN0GXE",
+    authDomain: "botanyapp-ca95e.firebaseapp.com",
+    projectId: "botanyapp-ca95e",
+    storageBucket: "botanyapp-ca95e.firebaseapp.com",
+    messagingSenderId: "365997031075",
+    appId: "1:365997031075:web:116b96c9232215c1260916",
+    measurementId: "G-7YC5XHZ5GN"
 
 const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId; // Canvas appId থাকলে সেটা, না হলে projectId
 
@@ -2181,3 +2180,4 @@ document.addEventListener('DOMContentLoaded', () => {
         openModal(entryFormContainer);
     }
 });
+
