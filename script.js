@@ -1,6 +1,6 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // আপনার Firebase প্রজেক্টের কনফিগারেশন, যা আপনার দেওয়া হয়েছে।
@@ -8,13 +8,13 @@ import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnap
 // Canvas পরিবেশ থেকে __firebase_config এবং __app_id ব্যবহার করা হচ্ছে।
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
     // Fallback for local development if not in Canvas
-    apiKey: "AIzaSyAoUwwmxG9fq02pKKoUw63-chtMkAN0GXE",
-    authDomain: "botanyapp-ca95e.firebaseapp.com",
-    projectId: "botanyapp-ca95e",
-    storageBucket: "botanyapp-ca95e.firebaseapp.com",
-    messagingSenderId: "365997031075",
-    appId: "1:365997031075:web:116b96c9232215c1260916",
-    measurementId: "G-7YC5XHZ5GN"
+    apiKey: "YOUR_FIREBASE_API_KEY", // Replace with your actual Firebase API Key
+    authDomain: "YOUR_FIREBASE_AUTH_DOMAIN",
+    projectId: "YOUR_FIREBASE_PROJECT_ID",
+    storageBucket: "YOUR_FIREBASE_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_FIREBASE_MESSAGING_SENDER_ID",
+    appId: "YOUR_FIREBASE_APP_ID",
+    measurementId: "YOUR_FIREBASE_MEASUREMENT_ID"
 };
 
 const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId; // Canvas appId থাকলে সেটা, না হলে projectId
@@ -131,35 +131,23 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     headerLeafIcon.innerHTML = ICONS.leaf;
 
-    // Function to hash a string using SHA-256
-    async function sha256(message) {
-        // encode as UTF-8
-        const msgBuffer = new TextEncoder().encode(message);
-        // hash the message
-        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-        // convert ArrayBuffer to Array of bytes
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        // convert bytes to hex string
-        const hexHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        return hexHash;
-    }
+    // --- Firebase Admin Role Mapping (Emails instead of just usernames) ---
+    // These roles must correspond to user accounts created in Firebase Authentication
+    // with the specified email addresses.
+    const ADMIN_ROLES_MAP = {
+        'depthead@botany.college': { designation: 'Department Head', year: '' },
+        'cr1st@botany.college': { designation: 'CR 1st Year', year: '1st' },
+        'cr2nd@botany.college': { designation: 'CR 2nd Year', year: '2nd' },
+        'cr3rd@botany.college': { designation: 'CR 3rd Year', year: '3rd' },
+        'cr4th@botany.college': { designation: 'CR 4th Year', year: '4th' },
+        'dobadmin@botany.college': { designation: 'Default Admin', year: '' } // Changed from DOBADMIN username to dobadmin@botany.college
+    };
 
-    // --- Admin Credentials (Fixed ID for now, ideally managed by Firebase Auth) ---
-    // In a real app, admin roles would be managed via Firebase Auth custom claims or a 'users' collection.
-    // For this example, 'ADMIN_USER_ID' is a placeholder. Any user logging in with the hardcoded admin
-    // username/password will be assigned this ID and considered admin.
-    // Passwords are now SHA-256 hashed.
-    const ADMIN_CREDENTIALS = [
-        // These hashes have been verified using the sha256 function in this script.
-        { username: 'DOBADMIN', passwordHash: 'a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b27796ad9f146e', designation: 'Default Admin' },
-        { username: 'DEPTHEAD', passwordHash: '0d484e591c255b761b091e92d770c39f0d01479d20c2420a84e62933f4a3637e', designation: 'Department Head' },
-        { username: 'CR1ST', passwordHash: '613867c2e36b85d9c228d447f2010834164b3efb69209f9f8e4040f7b98935c1', designation: 'CR 1st Year', year: '1st' },
-        { username: 'CR2ND', passwordHash: '3b09d94901f40d6c56b607066d79a29e46a7509d66a6a38f328f64303720f4c3', designation: 'CR 2nd Year', year: '2nd' },
-        { username: 'CR3RD', passwordHash: 'c080928e08f219156e7e59b2075908a7b6a15e0a0a5b882c2e91a681335c0a0a', designation: 'CR 3rd Year', year: '3rd' },
-        { username: 'CR4TH', passwordHash: 'f061d368e5482f7169f448625b0359b3f9d5c31f8f3c7e462a6b2d28f061d368', designation: 'CR 4th Year', year: '4th' }
-    ];
+    // This ADMIN_USER_ID is no longer strictly used for Firebase authentication permissions,
+    // but can be kept as a conceptual ID for internal app logic if needed.
+    // Firebase Auth provides its own UIDs.
+    const ADMIN_CONCEPTUAL_ID = 'ADMIN_USER_ID_CONCEPTUAL';
 
-    const ADMIN_USER_ID = 'ADMIN_USER_ID_12345'; // Unique ID for all admin users in terms of Firebase permissions
 
     // --- Notification Specific Global Variables ---
     let notifiedEvents = JSON.parse(localStorage.getItem('notifiedEvents')) || {}; // Store notified event IDs to prevent duplicate reminders
@@ -1400,7 +1388,7 @@ document.addEventListener('DOMContentLoaded', () => {
             itemSnap = await getDoc(itemRef);
         } catch (error) {
             console.error(`Error fetching document for deletion check:`, error);
-            showCustomAlert('ডাটা লোড করতে সমস্যা হয়েছে।');
+            showCustomAlert('ডাটা লোAD করতে সমস্যা হয়েছে।');
             return;
         }
 
@@ -1723,6 +1711,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 unsubscribeListeners[key]();
                 unsubscribeListeners[key] = null; // Clear the reference
             }
+            // For Firebase Auth onAuthStateChanged listener, it's global and should not be unsubscribed here.
+            // Only data listeners (onSnapshot) should be managed this way.
         });
 
         currentPage = pageId;
@@ -1900,8 +1890,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div id="adminLoginFields" style="display: none;">
                         <div class="form-group">
-                            <label for="adminUsername">ইউজারনেম</label>
-                            <input type="text" id="adminUsername">
+                            <label for="adminEmail">অ্যাডমিন ইমেইল</label>
+                            <input type="email" id="adminEmail">
                         </div>
                         <div class="form-group">
                             <label for="adminPassword">পাসওয়ার্ড</label>
@@ -1917,7 +1907,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const entryErrorEl = document.getElementById('entryError');
         const loginAsAdminCheckbox = document.getElementById('loginAsAdmin');
         const adminLoginFields = document.getElementById('adminLoginFields');
-        const adminUsernameInput = document.getElementById('adminUsername');
+        const adminEmailInput = document.getElementById('adminEmail'); // Changed from adminUsernameInput
         const adminPasswordInput = document.getElementById('adminPassword');
 
         loginAsAdminCheckbox.addEventListener('change', () => {
@@ -1929,7 +1919,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('entryYear').removeAttribute('required');
                 document.getElementById('entryReg').removeAttribute('required');
 
-                adminUsernameInput.setAttribute('required', 'true');
+                adminEmailInput.setAttribute('required', 'true');
                 adminPasswordInput.setAttribute('required', 'true');
             } else {
                 adminLoginFields.style.display = 'none';
@@ -1938,9 +1928,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('entryYear').setAttribute('required', 'true');
                 document.getElementById('entryReg').setAttribute('required', 'true');
 
-                adminUsernameInput.removeAttribute('required');
+                adminEmailInput.removeAttribute('required');
                 adminPasswordInput.removeAttribute('required');
-                adminUsernameInput.value = '';
+                adminEmailInput.value = '';
                 adminPasswordInput.value = '';
             }
         });
@@ -1950,32 +1940,54 @@ document.addEventListener('DOMContentLoaded', () => {
             let name, roll, year, regLast4;
             let role = 'student';
             let designation = ''; // Store designation for admin roles
-            let tempIdForEntryDetails = auth.currentUser ? auth.currentUser.uid : crypto.randomUUID(); // Use Firebase UID if available, else random.
+            let currentUserId = auth.currentUser ? auth.currentUser.uid : crypto.randomUUID(); // Default to anonymous UID or a random one
 
             if (loginAsAdminCheckbox.checked) {
-                const adminUsername = adminUsernameInput.value.trim();
+                const adminEmail = adminEmailInput.value.trim();
                 const adminPass = adminPasswordInput.value.trim();
-                const hashedAdminPass = await sha256(adminPass); // Hash the entered password
 
-                const matchedAdmin = ADMIN_CREDENTIALS.find(
-                    admin => admin.username === adminUsername && admin.passwordHash === hashedAdminPass // Compare with hashed password
-                );
-
-                if (matchedAdmin) {
-                    role = 'admin';
-                    tempIdForEntryDetails = ADMIN_USER_ID; // Assign fixed admin ID for internal app logic
-                    name = matchedAdmin.designation; // Display designation as name for admin
-                    designation = matchedAdmin.designation; // Store the specific designation
-                    roll = ''; // Admins don't need roll/reg
-                    year = matchedAdmin.year || ''; // Set year for CRs, empty for other admins
-                    regLast4 = '';
-                    entryErrorEl.style.display = 'none';
-                } else {
-                    entryErrorEl.textContent = 'ভুল ইউজারনেম বা পাসওয়ার্ড।';
+                if (!adminEmail || !adminPass) {
+                    entryErrorEl.textContent = 'অ্যাডমিন ইমেইল এবং পাসওয়ার্ড আবশ্যক।';
                     entryErrorEl.style.display = 'block';
                     return;
                 }
-            } else {
+
+                try {
+                    showLoading();
+                    const userCredential = await signInWithEmailAndPassword(auth, adminEmail, adminPass);
+                    currentUserId = userCredential.user.uid; // Use Firebase Auth UID
+                    const matchedAdmin = ADMIN_ROLES_MAP[adminEmail];
+
+                    if (matchedAdmin) {
+                        role = 'admin';
+                        name = matchedAdmin.designation;
+                        designation = matchedAdmin.designation;
+                        roll = '';
+                        year = matchedAdmin.year || '';
+                        regLast4 = '';
+                        entryErrorEl.style.display = 'none';
+                    } else {
+                        // User logged in via Firebase Auth, but not recognized as an admin by our map
+                        // This case implies an unknown email/password user logged in
+                        showCustomAlert("আপনার অ্যাকাউন্টটি অ্যাডমিন হিসাবে চিহ্নিত করা যায়নি। সাধারণ ব্যবহারকারী হিসাবে প্রবেশ করছেন।");
+                        role = 'student'; // Fallback to student role if admin email not in map
+                        name = userCredential.user.email; // Use email as name
+                        roll = '';
+                        year = '';
+                        regLast4 = '';
+                        designation = 'Student';
+                    }
+                } catch (error) {
+                    console.error("Firebase Admin Login Error:", error);
+                    entryErrorEl.textContent = 'অ্যাডমিন লগইন ব্যর্থ হয়েছে। ভুল ইমেইল বা পাসওয়ার্ড।';
+                    entryErrorEl.style.display = 'block';
+                    hideLoading();
+                    return;
+                } finally {
+                    hideLoading();
+                }
+
+            } else { // Student login flow
                  name = document.getElementById('entryName').value.trim();
                  roll = document.getElementById('entryRoll').value.trim();
                  year = document.getElementById('entryYear').value.trim();
@@ -1993,16 +2005,38 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 entryErrorEl.style.display = 'none';
+
+                // Ensure an anonymous user is signed in for Firestore
+                if (!auth.currentUser) {
+                    try {
+                        showLoading();
+                        const userCredential = await signInAnonymously(auth);
+                        currentUserId = userCredential.user.uid;
+                    } catch (error) {
+                        console.error("Anonymous Sign-in Error:", error);
+                        showCustomAlert("সাধারণ ব্যবহারকারী হিসাবে প্রবেশ করতে সমস্যা হয়েছে। ইন্টারনেট সংযোগ বা কনফিগারেশন পরীক্ষা করুন।");
+                        hideLoading();
+                        return;
+                    } finally {
+                        hideLoading();
+                    }
+                } else {
+                    currentUserId = auth.currentUser.uid;
+                }
             }
 
-            entryUserDetails = { name, roll, year, regLast4, role, id: tempIdForEntryDetails, designation: designation }; // Store details for UI
+            // Update global userId and other flags AFTER successful authentication
+            userId = currentUserId; // Set the global userId to the Firebase UID
+            entryUserDetails = { name, roll, year, regLast4, role, id: userId, designation: designation };
             localStorage.setItem('entryFormSubmitted', JSON.stringify(entryUserDetails));
-            // Force update userId and isAdmin based on new entryUserDetails
-            userId = auth.currentUser ? auth.currentUser.uid : tempIdForEntryDetails; // Ensure userId reflects Firebase UID if available, otherwise form ID.
-            isAdmin = (entryUserDetails.role === 'admin'); // Check if general admin role
-            isSuperAdmin = isAdmin && (entryUserDetails.designation === 'Department Head' || entryUserDetails.designation === 'Default Admin'); // Check for super admin
-            isCR = isAdmin && entryUserDetails.designation.includes('CR'); // Check for CR
-            crYear = isCR ? entryUserDetails.year : ''; // Set CR's specific year
+
+            // Re-evaluate admin roles based on the authenticated user's email
+            const currentUserEmail = auth.currentUser?.email;
+            const userIsAdminInMap = currentUserEmail && ADMIN_ROLES_MAP[currentUserEmail];
+            isAdmin = (userIsAdminInMap !== undefined); // True if email exists in map
+            isSuperAdmin = isAdmin && (ADMIN_ROLES_MAP[currentUserEmail].designation === 'Department Head' || ADMIN_ROLES_MAP[currentUserEmail].designation === 'Default Admin');
+            isCR = isAdmin && ADMIN_ROLES_MAP[currentUserEmail].designation.includes('CR');
+            crYear = isCR ? ADMIN_ROLES_MAP[currentUserEmail].year : '';
 
             initializeAppUI();
         });
@@ -2015,7 +2049,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Ensure entryUserDetails is available before accessing its properties
         if (entryUserDetails) {
             // Updated line: Use convertYearToBengaliText for year and convertToBengaliNumeral for roll
-            userWelcomeInfo.textContent = `স্বাগতম: ${entryUserDetails.name} ${entryUserDetails.roll ? `(রোল: ${convertToBengaliNumeral(entryUserDetails.roll)})` : ''}${entryUserDetails.year ? `, বর্ষ: ${convertYearToBengaliText(entryUserDetails.year)}` : ''}${entryUserDetails.role === 'admin' ? ` (${entryUserDetails.designation})` : ''}`;
+            userWelcomeInfo.textContent = `স্বাগতম: ${entryUserDetails.name} ${entryUserDetails.roll ? `(রোল: ${convertToBengaliNumeral(entryUserDetails.roll)})` : ''}${entryUserDetails.year ? `, বর্ষ: ${convertYearToBengaliText(entryUserDetails.year)}` : ''}${isAdmin ? ` (${entryUserDetails.designation})` : ''}`;
         } else {
             // Fallback if somehow entryUserDetails is not set (should not happen with current logic)
             userWelcomeInfo.textContent = `স্বাগতম: ব্যবহারকারী`; // Removed ID from fallback too
@@ -2036,117 +2070,93 @@ document.addEventListener('DOMContentLoaded', () => {
             // Listen for auth state changes
             onAuthStateChanged(auth, async (user) => {
                 if (user) {
-                    // Firebase user exists (either from custom token or anonymous)
+                    // Firebase user exists (either from custom token, email/password, or anonymous)
                     userId = user.uid; // Always use the Firebase UID for all Firestore operations
 
                     const storedUserDetails = localStorage.getItem('entryFormSubmitted');
                     if (storedUserDetails) {
                         entryUserDetails = JSON.parse(storedUserDetails);
-                        // If the currently authenticated Firebase user's UID matches ADMIN_USER_ID
-                        // and their stored role isn't 'admin', update it for app logic.
-                        // This handles cases where an admin logs in on a new device or cleared localStorage.
-                        if (user.uid === ADMIN_USER_ID && entryUserDetails.role !== 'admin') {
-                            entryUserDetails.role = 'admin';
-                            entryUserDetails.id = ADMIN_USER_ID;
-                            // Re-derive designation and year for admin types if needed (e.g., after reload)
-                            const matchedAdmin = ADMIN_CREDENTIALS.find(admin => admin.designation === entryUserDetails.designation);
-                            if (matchedAdmin) {
-                                entryUserDetails.year = matchedAdmin.year || '';
-                            }
+                        // Re-evaluate admin roles based on the authenticated user's email
+                        const currentUserEmail = user.email; // Email will be null for anonymous users
+                        const userIsAdminInMap = currentUserEmail && ADMIN_ROLES_MAP[currentUserEmail];
+
+                        if (userIsAdminInMap) {
+                            isAdmin = true;
+                            isSuperAdmin = (ADMIN_ROLES_MAP[currentUserEmail].designation === 'Department Head' || ADMIN_ROLES_MAP[currentUserEmail].designation === 'Default Admin');
+                            isCR = ADMIN_ROLES_MAP[currentUserEmail].designation.includes('CR');
+                            crYear = isCR ? ADMIN_ROLES_MAP[currentUserEmail].year : '';
+                            entryUserDetails.role = 'admin'; // Update stored role if it was student but now Firebase user is admin
+                            entryUserDetails.id = userId; // Ensure stored ID is Firebase UID
+                            entryUserDetails.designation = ADMIN_ROLES_MAP[currentUserEmail].designation;
+                            entryUserDetails.year = ADMIN_ROLES_MAP[currentUserEmail].year || ''; // Set year for CRs
                             localStorage.setItem('entryFormSubmitted', JSON.stringify(entryUserDetails));
+                        } else {
+                            // Regular (or anonymous) user
+                            isAdmin = false;
+                            isSuperAdmin = false;
+                            isCR = false;
+                            crYear = '';
+                            // Ensure entryUserDetails role is 'student' if not an admin
+                            if (entryUserDetails.role === 'admin' && !userIsAdminInMap) {
+                                // This case handles if a previous admin logged out and a new anonymous user came in, or localStorage was not cleared.
+                                // We trust the Firebase Auth state more than old localStorage for isAdmin.
+                                // For student details, we still rely on localStorage unless they explicitly log in.
+                                // Resetting entryUserDetails for non-admin anonymous users, but keeping original name, roll, year, regLast4 for known students.
+                                entryUserDetails.role = 'student';
+                                entryUserDetails.designation = 'Student';
+                                entryUserDetails.id = userId; // Update ID to current anonymous UID
+                                // No change to name, roll, year, regLast4 here, as they are for display/filtering purposes.
+                                localStorage.setItem('entryFormSubmitted', JSON.stringify(entryUserDetails));
+                            }
                         }
                     } else {
-                        // No user details in localStorage, even though Firebase Auth has a user (anonymous or custom token).
-                        // This means the user hasn't filled the entry form yet.
+                        // No user details in localStorage, even though Firebase Auth has a user.
+                        // This means the user hasn't filled the entry form yet or localStorage was cleared.
                         // Force showing the entry form to collect details.
                         renderEntryForm();
                         openModal(entryFormContainer);
                         return; // Stop further UI initialization until form is submitted
                     }
 
-                    // At this point, entryUserDetails is guaranteed to be set (either loaded or from form submission).
-                    // Determine isAdmin based on the app's internal logic (admin username/password)
-                    isAdmin = (entryUserDetails.role === 'admin');
-                    isSuperAdmin = isAdmin && (entryUserDetails.designation === 'Department Head' || entryUserDetails.designation === 'Default Admin');
-                    isCR = isAdmin && entryUserDetails.designation.includes('CR');
-                    crYear = isCR ? entryUserDetails.year : ''; // Set CR's specific year
-
                     // Initialize the UI only after everything is set
                     initializeAppUI();
                 } else {
                     // No Firebase user signed in initially.
-                    // Try signing in with the Canvas-provided custom token first.
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        try {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                            // If successful, onAuthStateChanged will fire again with a user.
-                        } catch (error) {
-                            console.error("Error signing in with custom token:", error);
-                            // If custom token fails, fall back to anonymous sign-in to get a UID for Firestore.
-                            try {
-                                await signInAnonymously(auth);
-                                // If successful, onAuthStateChanged will fire again with an anonymous user.
-                            } catch (anonError) {
-                                console.error("Error signing in anonymously:", anonError);
-                                showCustomAlert("অ্যাপ লোড করতে সমস্যা হয়েছে। ইন্টারনেট সংযোগ বা কনফিগারেশন পরীক্ষা করুন।");
-                                renderEntryForm();
-                                openModal(entryFormContainer);
-                            }
-                        }
+                    // If no user details in localStorage, show entry form immediately.
+                    const storedUserDetailsOnLoad = localStorage.getItem('entryFormSubmitted');
+                    if (!storedUserDetailsOnLoad) {
+                         renderEntryForm();
+                         openModal(entryFormContainer);
                     } else {
-                        // If no custom token, proceed directly to anonymous sign-in to get a UID for Firestore.
+                        // If stored details exist but no Firebase user, attempt anonymous sign-in
                         try {
-                            await signInAnonymously(auth);
-                            // If successful, onAuthStateChanged will fire again with an anonymous user.
-                        } catch (anonError) {
-                            console.error("Error signing in anonymously:", anonError);
-                            showCustomAlert("অ্যাপ লোড করতে সমস্যা হয়েছে। ইন্টারনেট সংযোগ বা কনফিগারেশন পরীক্ষা করুন।");
-                            renderEntryForm();
-                            openModal(entryFormContainer);
+                            // If a token from Canvas environment is provided, try that first.
+                            if (typeof __initial_auth_token !== 'undefined') {
+                                await signInWithCustomToken(auth, __initial_auth_token);
+                            } else {
+                                await signInAnonymously(auth);
+                            }
+                        } catch (error) {
+                            console.error("Firebase initialization or anonymous sign-in failed:", error);
+                            showCustomAlert("অ্যাপ শুরু করতে সমস্যা হয়েছে। ইন্টারনেট সংযোগ বা Firebase কনফিগারেশন পরীক্ষা করুন।");
+                             renderEntryForm(); // Show form as fallback
+                             openModal(entryFormContainer);
                         }
                     }
                 }
             });
-
-            // This initial check outside onAuthStateChanged is useful for immediate state.
-            // If Firebase already has a user from a previous session, onAuthStateChanged fires instantly.
-            // If not (and no custom token), we trigger anonymous login here to ensure a Firebase UID exists for Firestore rules.
-            if (!auth.currentUser) {
-                const storedUserDetails = localStorage.getItem('entryFormSubmitted');
-                 // Only attempt anonymous sign-in if no user is currently authenticated AND no stored entry form details are present.
-                 // This ensures the entry form is the primary gate.
-                if (!storedUserDetails && typeof __initial_auth_token === 'undefined') {
-                    try {
-                        await signInAnonymously(auth);
-                    } catch (error) {
-                        console.error("Initial anonymous sign-in failed:", error);
-                        showCustomAlert("Firebase শুরু করতে সমস্যা হয়েছে। ইন্টারনেট সংযোগ বা কনফিগারেশন পরীক্ষা করুন।");
-                        renderEntryForm();
-                        openModal(entryFormContainer);
-                    }
-                } else if (!storedUserDetails && typeof __initial_auth_token !== 'undefined') {
-                     // If there's an __initial_auth_token, let onAuthStateChanged handle it.
-                     // But if it fails, it will lead to entry form.
-                     // No direct action here, onAuthStateChanged will handle sign-in with token.
-                }
-                // If storedUserDetails exists, it means the user has filled the form before,
-                // and onAuthStateChanged will eventually pick up the Firebase user (or create one anonymously)
-                // and then proceed with initializeAppUI.
-            }
-
-
         } catch (error) {
-            console.error("Error initializing Firebase or Auth (outer block):", error);
-            showCustomAlert("Firebase শুরু করতে সমস্যা হয়েছে। ইন্টারনেট সংযোগ বা কনফিগারেশন পরীক্ষা করুন।");
-            renderEntryForm(); // Show entry form as fallback
-            openModal(entryFormContainer);
+            console.error("Error during Firebase initialization:", error);
+            showCustomAlert("Firebase শুরু করতে সমস্যা হয়েছে। আপনার Firebase কনফিগারেশন সঠিক আছে কিনা নিশ্চিত করুন।");
+             renderEntryForm(); // Show entry form as fallback
+             openModal(entryFormContainer);
         }
     }
 
     // Call the async initialization function
     initFirebaseAndAuth();
 
-    // --- Initialize `userId` and `isAdmin` from `localStorage` on initial load BEFORE Firebase auth completes ---
+    // --- Initialize `userId` and `isAdmin` from `localStorage` on initial load BEFORE Firebase auth completes --
     // This is important for ensuring the UI components (like add buttons) are rendered correctly even before Firebase Auth finishes its handshake.
     const storedUserDetailsOnLoad = localStorage.getItem('entryFormSubmitted');
     if (storedUserDetailsOnLoad) {
@@ -2155,11 +2165,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // or ADMIN_USER_ID for previous admins, or a Firebase UID if anonymous auth happened previously.
         // It will be updated by onAuthStateChanged with the actual Firebase UID later.
         userId = entryUserDetails.id;
-        // Changed: Simplified admin check
-        isAdmin = (entryUserDetails.role === 'admin');
-        isSuperAdmin = isAdmin && (entryUserDetails.designation === 'Department Head' || entryUserDetails.designation === 'Default Admin');
-        isCR = isAdmin && entryUserDetails.designation.includes('CR');
-        crYear = isCR ? entryUserDetails.year : ''; // Set CR's specific year
+        // Re-evaluate admin roles based on the stored email (if any)
+        const storedEmail = entryUserDetails.email; // Assuming email might be stored for admin entries
+        const userIsAdminInMap = storedEmail && ADMIN_ROLES_MAP[storedEmail];
+        isAdmin = (userIsAdminInMap !== undefined);
+        isSuperAdmin = isAdmin && (ADMIN_ROLES_MAP[storedEmail]?.designation === 'Department Head' || ADMIN_ROLES_MAP[storedEmail]?.designation === 'Default Admin');
+        isCR = isAdmin && ADMIN_ROLES_MAP[storedEmail]?.designation.includes('CR');
+        crYear = isCR ? ADMIN_ROLES_MAP[storedEmail]?.year : '';
 
         // If app is reloaded and entryUserDetails exists, show app immediately. Firebase auth will catch up.
         initializeAppUI(); // Changed to immediately show UI if stored details exist
