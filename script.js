@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
         reg: '1234', // Example registration last 4 digits
         year: '1st',
         bio: 'Developer and UI/UX enthusiast. Passionate about creating seamless user experiences.',
-        imageUrl: 'https://scontent.fdac138-1.fna.fbcdn.net/v/t39.30808-6/487712294_677753404763810_6026313783861584249_n.jpg?_nc_cat=108&ccb=1-7&_nc_sid=6ee11a&_nc_eui2=AeVv6SDUPFHlATw1Q4F4oLxgmK7e6xHdH-eYrt7rEd0f5wmSCrbQvvmZH6-7j4l2dzbuHcH9-HGRorQUXPBCIoA0&_nc_ohc=t8QsMIbQ-0Q7kNvwGqxRBT&_nc_oc=AdmOM3LL72lKQcjyHuOLQ74LswmRg673hmp6Ljf37Em-QHZ576Tjl1jY6kF_C8JMM&_nc_zt=23&_nc_ht=scontent.fdac138-1.fna&_nc_gid=t3V0WI7UOshW8Yp6qesSPQ&oh=00_AfUEym0IUYJhWALScauWc0g2A9k2CCy6XqHLKU82-CrRw&oe=68ACB619', // Placeholder image or replace with actual image URL
+        imageUrl: 'https://scontent.fdac138-1.fna.fbcdn.net/v/t39.30808-6/487712294_677753404763810_6026313783861584249_n.jpg?_nc_cat=108&ccb=1-7&_nc_sid=6ee11a&_nc_eui2=AeFv6SDUPFHlATw1Q4F4oLxgmK7e6xHdH-eYrt7rEd0f5wmSCrbQvvmZH6-7j4l2dzbuHcH9-HGRorQUXPBCIoA0&_nc_ohc=RuWvo2rCIE0Q7kNvwH6H4Yi&_nc_oc=AdnuXT3rbz3KAUDfkixXefzAg57vIHqjK6PYTQ5N7OVAUP0mzuz119l3ZtgXQA_A9J8&_nc_zt=23&_nc_ht=scontent.fdac138-1.fna&_nc_gid=DOCcBEYKgLCD13ZiuvxVDg&oh=00_AfWWbG5FSgdorWW6V0rwG0rxLKEZwGCsQiyCm2P5POIdTA&oe=68AE0799', // Placeholder image or replace with actual image URL
         email: 'humayunahmed04032002@gmail.com', // Replace with actual email
         phone: '+8801XXXXXXXXX', // Replace with actual phone
         facebookId: 'https://www.facebook.com/your_facebook_id', // Replace with actual Facebook ID/URL
@@ -279,7 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
                            <p><strong>পোস্ট করেছেন:</strong> ${item.createdBy}</p>
                            <p><strong>তারিখ:</strong> ${formatDate(item.timestamp)} ${formatTime(item.timestamp)}</p>
                            <p><strong>লাইক:</strong> ${item.reactions ? item.reactions.length : 0}</p>
-                           <p><strong>কমেন্ট:</strong> ${item.comments ? item.comments.length : 0}</p>`;
+                           <p><strong> কমেন্ট:</strong> ${item.comments ? item.comments.length : 0}</p>`;
                 break;
             case 'student':
                 content = `<div class="text-center">
@@ -1243,8 +1243,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                         </div>
                     ` : `
-                        <p class="card-text">রোলঃ ${convertToBengaliNumeral(item.roll)} | রেজিঃ ${convertToBengaliNumeral(item.reg)}</p>
-                        <p class="card-text">বর্ষ: ${convertYearToBengaliText(item.year)} বর্ষ</p>
+                        <p class="card-text">রোলঃ ${convertToBengaliNumeral(student.roll)} | রেজিঃ ${convertToBengaliNumeral(student.reg)}</p>
+                        <p class="card-text">বর্ষ: ${convertYearToBengaliText(student.year)} বর্ষ</p>
                         ${student.bio ? `<p class="card-text text-sm text-gray-600">${student.bio.substring(0,50)}${student.bio.length > 50 ? '...' : ''}</p>` : ''}
                         <div class="student-contact-info mt-1">
                             ${student.email ? `<div>${ICONS.mail} <a href="mailto:${student.email}">${student.email}</a></div>` : ''}
@@ -1388,7 +1388,7 @@ document.addEventListener('DOMContentLoaded', () => {
             itemSnap = await getDoc(itemRef);
         } catch (error) {
             console.error(`Error fetching document for deletion check:`, error);
-            showCustomAlert('ডাটা লোAD করতে সমস্যা হয়েছে।');
+            showCustomAlert('ডাটা লোড করতে সমস্যা হয়েছে।');
             return;
         }
 
@@ -1634,10 +1634,10 @@ document.addEventListener('DOMContentLoaded', () => {
         notificationPromptModalContainer.id = 'notification-prompt-modal';
         notificationPromptModalContainer.innerHTML = `
             <div class="modal-content" style="max-width: 450px; text-align: center;">
-                <h3>নোটিফিকেশন অনুমতি দিন</h3>
+                <h3>নোটিফিকেশন</h3>
                 <p>ক্লাস আপডেট, পরীক্ষার রিমাইন্ডার এবং গুরুত্বপূর্ণ নোটিশ পেতে নোটিফিকেশন চালু করুন।</p>
                 <div class="form-actions" style="justify-content: center; margin-top: 20px;">
-                    <button class="btn btn-primary" id="allow-notifications-btn">হ্যাঁ, অনুমতি দিন</button>
+                    <button class="btn btn-primary" id="allow-notifications-btn">অনুমতি দিন</button>
                     <button class="btn btn-gray" id="deny-notifications-btn">পরে করুন</button>
                 </div>
             </div>
@@ -1647,18 +1647,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('allow-notifications-btn').addEventListener('click', async () => {
             const granted = await requestNotificationPermission();
-            if (granted) {
-                showCustomAlert('নোটিফিকেশন অনুমতি দেওয়া হয়েছে! এখন আপনি আপডেট পাবেন।');
-            } else {
-                showCustomAlert('নোটিফিকেশন অনুমতি দেওয়া হয়নি। আপনি ব্রাউজার সেটিংসে এটি চালু করতে পারেন।');
-            }
+            // No custom alert here, as the modal itself handles the feedback implicitly by closing
             closeModal(notificationPromptModalContainer);
             notificationPromptModalContainer.remove();
         });
 
         document.getElementById('deny-notifications-btn').addEventListener('click', () => {
             localStorage.setItem(NOTIFICATION_PROMPT_SHOWN_KEY, 'denied'); // Mark as denied explicitly
-            showCustomAlert('নোটিফিকেশন চালু করা হয়নি। আপনি যেকোনো সময় ব্রাউজার সেটিংসে এটি চালু করতে পারেন।');
+            // No custom alert here, as the modal itself handles the feedback implicitly by closing
             closeModal(notificationPromptModalContainer);
             notificationPromptModalContainer.remove();
         });
@@ -1975,7 +1971,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         roll = '';
                         year = '';
                         regLast4 = '';
-                        designation = 'Student';
+                        designation = 'Student'; // This is a safe fallback
                     }
                 } catch (error) {
                     console.error("Firebase Admin Login Error:", error);
@@ -2023,6 +2019,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     currentUserId = auth.currentUser.uid;
                 }
+
+                // Save student's profile to Firestore
+                try {
+                    await setDoc(doc(db, `${PUBLIC_COLLECTION_PATH}/user_profiles`, currentUserId), {
+                        name: name,
+                        roll: roll,
+                        year: year,
+                        regLast4: regLast4,
+                        role: 'student', // Explicitly set role
+                        designation: 'Student', // Explicitly set designation
+                        createdBy: 'Self-Registered',
+                        createdByUserId: currentUserId,
+                        timestamp: new Date().toISOString()
+                    });
+                } catch (error) {
+                    console.error("Error saving student profile to Firestore:", error);
+                    showCustomAlert("আপনার প্রোফাইল সংরক্ষণ করতে সমস্যা হয়েছে।");
+                    hideLoading();
+                    return;
+                }
             }
 
             // Update global userId and other flags AFTER successful authentication
@@ -2032,11 +2048,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Re-evaluate admin roles based on the authenticated user's email
             const currentUserEmail = auth.currentUser?.email;
-            const userIsAdminInMap = currentUserEmail && ADMIN_ROLES_MAP[currentUserEmail];
-            isAdmin = (userIsAdminInMap !== undefined); // True if email exists in map
-            isSuperAdmin = isAdmin && (ADMIN_ROLES_MAP[currentUserEmail].designation === 'Department Head' || ADMIN_ROLES_MAP[currentUserEmail].designation === 'Default Admin');
-            isCR = isAdmin && ADMIN_ROLES_MAP[currentUserEmail].designation.includes('CR');
-            crYear = isCR ? ADMIN_ROLES_MAP[currentUserEmail].year : '';
+            const adminRoleDetails = ADMIN_ROLES_MAP[currentUserEmail]; // This can be undefined for non-admin emails
+
+            if (adminRoleDetails) { // Only proceed if adminRoleDetails is a valid object
+                isAdmin = true;
+                const currentDesignation = adminRoleDetails.designation || ''; // Ensure it's a string
+                isSuperAdmin = (currentDesignation === 'Department Head' || currentDesignation === 'Default Admin');
+                isCR = currentDesignation.includes('CR');
+                crYear = isCR ? adminRoleDetails.year || '' : ''; // Safely access year
+                entryUserDetails.role = 'admin';
+                entryUserDetails.id = userId;
+                entryUserDetails.designation = currentDesignation;
+                entryUserDetails.year = crYear;
+                localStorage.setItem('entryFormSubmitted', JSON.stringify(entryUserDetails));
+            } else {
+                // Regular (or anonymous) user
+                isAdmin = false;
+                isSuperAdmin = false;
+                isCR = false;
+                crYear = '';
+                // If previously admin from localStorage but now not recognized by Firebase Auth (e.g., email changed or role removed), reset to student.
+                if (entryUserDetails.role === 'admin') {
+                    entryUserDetails.role = 'student';
+                    entryUserDetails.designation = 'Student';
+                    entryUserDetails.id = userId; // Update ID to current anonymous UID
+                    entryUserDetails.year = entryUserDetails.year || ''; // Keep existing year if any, otherwise empty
+                    localStorage.setItem('entryFormSubmitted', JSON.stringify(entryUserDetails));
+                }
+            }
 
             initializeAppUI();
         });
@@ -2078,17 +2117,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         entryUserDetails = JSON.parse(storedUserDetails);
                         // Re-evaluate admin roles based on the authenticated user's email
                         const currentUserEmail = user.email; // Email will be null for anonymous users
-                        const userIsAdminInMap = currentUserEmail && ADMIN_ROLES_MAP[currentUserEmail];
+                        const adminRoleDetails = ADMIN_ROLES_MAP[currentUserEmail]; // This can be undefined
 
-                        if (userIsAdminInMap) {
+                        if (adminRoleDetails) { // If adminRoleDetails is a valid object
                             isAdmin = true;
-                            isSuperAdmin = (ADMIN_ROLES_MAP[currentUserEmail].designation === 'Department Head' || ADMIN_ROLES_MAP[currentUserEmail].designation === 'Default Admin');
-                            isCR = ADMIN_ROLES_MAP[currentUserEmail].designation.includes('CR');
-                            crYear = isCR ? ADMIN_ROLES_MAP[currentUserEmail].year : '';
+                            const currentDesignation = adminRoleDetails.designation || ''; // Ensure it's a string
+                            isSuperAdmin = (currentDesignation === 'Department Head' || currentDesignation === 'Default Admin');
+                            isCR = currentDesignation.includes('CR');
+                            crYear = isCR ? adminRoleDetails.year || '' : ''; // Safely access year
                             entryUserDetails.role = 'admin'; // Update stored role if it was student but now Firebase user is admin
                             entryUserDetails.id = userId; // Ensure stored ID is Firebase UID
-                            entryUserDetails.designation = ADMIN_ROLES_MAP[currentUserEmail].designation;
-                            entryUserDetails.year = ADMIN_ROLES_MAP[currentUserEmail].year || ''; // Set year for CRs
+                            entryUserDetails.designation = currentDesignation;
+                            entryUserDetails.year = crYear;
                             localStorage.setItem('entryFormSubmitted', JSON.stringify(entryUserDetails));
                         } else {
                             // Regular (or anonymous) user
@@ -2096,26 +2136,73 @@ document.addEventListener('DOMContentLoaded', () => {
                             isSuperAdmin = false;
                             isCR = false;
                             crYear = '';
-                            // Ensure entryUserDetails role is 'student' if not an admin
-                            if (entryUserDetails.role === 'admin' && !userIsAdminInMap) {
-                                // This case handles if a previous admin logged out and a new anonymous user came in, or localStorage was not cleared.
-                                // We trust the Firebase Auth state more than old localStorage for isAdmin.
-                                // For student details, we still rely on localStorage unless they explicitly log in.
-                                // Resetting entryUserDetails for non-admin anonymous users, but keeping original name, roll, year, regLast4 for known students.
+                            // Attempt to load student profile from Firestore if they are a registered student (not just anonymous)
+                            const userProfileRef = doc(db, `${PUBLIC_COLLECTION_PATH}/user_profiles`, userId);
+                            const userProfileSnap = await getDoc(userProfileRef);
+
+                            if (userProfileSnap.exists()) {
+                                // If a profile exists for this UID, update entryUserDetails with it
+                                const profileData = userProfileSnap.data();
+                                entryUserDetails = {
+                                    name: profileData.name,
+                                    roll: profileData.roll,
+                                    year: profileData.year,
+                                    regLast4: profileData.regLast4,
+                                    role: 'student',
+                                    id: userId,
+                                    designation: 'Student'
+                                };
+                                localStorage.setItem('entryFormSubmitted', JSON.stringify(entryUserDetails));
+                            } else if (entryUserDetails.role === 'admin') {
+                                // If localStorage said 'admin' but no matching Firebase Auth or user_profile, revert to default student
                                 entryUserDetails.role = 'student';
                                 entryUserDetails.designation = 'Student';
                                 entryUserDetails.id = userId; // Update ID to current anonymous UID
-                                // No change to name, roll, year, regLast4 here, as they are for display/filtering purposes.
+                                entryUserDetails.year = entryUserDetails.year || ''; // Keep existing year if any, otherwise empty
                                 localStorage.setItem('entryFormSubmitted', JSON.stringify(entryUserDetails));
                             }
                         }
                     } else {
                         // No user details in localStorage, even though Firebase Auth has a user.
-                        // This means the user hasn't filled the entry form yet or localStorage was cleared.
-                        // Force showing the entry form to collect details.
-                        renderEntryForm();
-                        openModal(entryFormContainer);
-                        return; // Stop further UI initialization until form is submitted
+                        // Check if a user_profile exists for this UID (e.g., if localStorage was cleared)
+                        const userProfileRef = doc(db, `${PUBLIC_COLLECTION_PATH}/user_profiles`, user.uid);
+                        const userProfileSnap = await getDoc(userProfileRef);
+
+                        if (userProfileSnap.exists()) {
+                            // Load profile from Firestore
+                            const profileData = userProfileSnap.data();
+                            entryUserDetails = {
+                                name: profileData.name,
+                                roll: profileData.roll,
+                                year: profileData.year,
+                                regLast4: profileData.regLast4,
+                                role: 'student',
+                                id: user.uid,
+                                designation: 'Student'
+                            };
+                            localStorage.setItem('entryFormSubmitted', JSON.stringify(entryUserDetails));
+                            // Also check if this user is an admin via email (for cases where they might have a student profile AND an admin email)
+                            const currentUserEmail = user.email;
+                            const adminRoleDetails = ADMIN_ROLES_MAP[currentUserEmail];
+                            if (adminRoleDetails) {
+                                isAdmin = true;
+                                const currentDesignation = adminRoleDetails.designation || '';
+                                isSuperAdmin = (currentDesignation === 'Department Head' || currentDesignation === 'Default Admin');
+                                isCR = currentDesignation.includes('CR');
+                                crYear = isCR ? adminRoleDetails.year || '' : '';
+                                entryUserDetails.role = 'admin';
+                                entryUserDetails.designation = currentDesignation;
+                                entryUserDetails.year = crYear;
+                                localStorage.setItem('entryFormSubmitted', JSON.stringify(entryUserDetails));
+                            }
+                            initializeAppUI();
+                        } else {
+                            // No stored details in localStorage and no profile in Firestore for this UID
+                            // Force showing the entry form to collect details.
+                            renderEntryForm();
+                            openModal(entryFormContainer);
+                            return; // Stop further UI initialization until form is submitted
+                        }
                     }
 
                     // Initialize the UI only after everything is set
@@ -2167,11 +2254,21 @@ document.addEventListener('DOMContentLoaded', () => {
         userId = entryUserDetails.id;
         // Re-evaluate admin roles based on the stored email (if any)
         const storedEmail = entryUserDetails.email; // Assuming email might be stored for admin entries
-        const userIsAdminInMap = storedEmail && ADMIN_ROLES_MAP[storedEmail];
-        isAdmin = (userIsAdminInMap !== undefined);
-        isSuperAdmin = isAdmin && (ADMIN_ROLES_MAP[storedEmail]?.designation === 'Department Head' || ADMIN_ROLES_MAP[storedEmail]?.designation === 'Default Admin');
-        isCR = isAdmin && ADMIN_ROLES_MAP[storedEmail]?.designation.includes('CR');
-        crYear = isCR ? ADMIN_ROLES_MAP[storedEmail]?.year : '';
+        const adminRoleDetails = ADMIN_ROLES_MAP[storedEmail]; // This can be undefined for non-admin emails
+
+        isAdmin = (adminRoleDetails !== undefined); // Set isAdmin based on existence in map
+
+        if (isAdmin) { // Only evaluate these if isAdmin is true, meaning adminRoleDetails is an object
+            const currentDesignation = adminRoleDetails.designation || ''; // Ensures currentDesignation is always a string
+            isSuperAdmin = (currentDesignation === 'Department Head' || currentDesignation === 'Default Admin');
+            isCR = currentDesignation.includes('CR');
+            crYear = isCR ? adminRoleDetails.year || '' : ''; // Safely access year too
+        } else {
+            // Ensure non-admin flags are false
+            isSuperAdmin = false;
+            isCR = false;
+            crYear = '';
+        }
 
         // If app is reloaded and entryUserDetails exists, show app immediately. Firebase auth will catch up.
         initializeAppUI(); // Changed to immediately show UI if stored details exist
@@ -2181,6 +2278,3 @@ document.addEventListener('DOMContentLoaded', () => {
         openModal(entryFormContainer);
     }
 });
-
-
-
